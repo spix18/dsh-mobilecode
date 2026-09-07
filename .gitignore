@@ -1,0 +1,27 @@
+# Dependencies / environments
+node_modules/
+.ocr-venv/
+__pycache__/
+*.pyc
+
+# npm pack artifacts
+*.tgz
+
+# DSH local state
+.dsh-memory/
+~/.dsh/
+
+# Test artifacts (generated)
+vision-api-capability-test/results/
+vision-api-capability-test/expected-outputs/
+test/*.png
+test/*.jpg
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Reference clone (original mobilecode — not part of the package)
+.repo/

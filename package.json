@@ -1,0 +1,68 @@
+{
+  "name": "dsh-mobilecode",
+  "description": "MobileCode for the dsh web GUI: detect iOS/Android projects, run serve-sim / serve-avd preview servers, and build-install-launch the app on the simulator or emulator from the session — plus agent tools (device_run, device_detect). Hot-pluggable — mounted via the profile bundle list + cordis.patch.yml, no dsh source changes.",
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "files": [
+    "lib/**/*.js",
+    "scripts/**/*.py",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "license": "MIT",
+  "author": "spix18 <spix18@users.noreply.github.com> (https://github.com/spix18)",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "mobilecode",
+    "mobile",
+    "ios",
+    "android",
+    "emulator",
+    "simulator",
+    "device",
+    "preview",
+    "expo",
+    "react-native",
+    "ocr",
+    "paddleocr"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spix18/dsh-mobilecode.git"
+  },
+  "homepage": "https://github.com/spix18/dsh-mobilecode#readme",
+  "bugs": {
+    "url": "https://github.com/spix18/dsh-mobilecode/issues"
+  }
+}
