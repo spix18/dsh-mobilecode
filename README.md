@@ -22,7 +22,7 @@ the installed package.)
 
 ## Support
 
-If you find this useful, you can support development at ko-fi.com/spix18
+If you find this useful, you can support development at [ko-fi.com/spix18](https://ko-fi.com/spix18).
 
 ## What the plugin provides
 
