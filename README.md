@@ -123,20 +123,15 @@ double-wrapped quoting, and replaces the Effect/Schema types with plain JS.
 
 ## Install / mount
 
-The plugin mounts exactly like dsh-logcat — copy it into the web profile and
-add it to the bundle list:
-
-```powershell
-# from this repo
-$profile = "$env:USERPROFILE\.dsh\profiles\web"
-Copy-Item -Recurse lib, package.json, cordis.patch.yml "$profile\node_modules\dsh-mobilecode\"
+```bash
+dsh plugin --profile web add dsh-mobilecode
 ```
 
-Then add `dsh-mobilecode` to the `dsh.profile.bundles` array in
-`$profile\package.json` (the `cordis.patch.yml` insert row takes care of the
-roster). Restart the GUI to load the host half; refresh the browser to load
-the client bundle (`/plugins/dsh-mobilecode/client.js` — the URL id is the
-package name, not the patch row id).
+The package ships with `cordis.patch.yml` + `package.json` (`dsh.bundle.patch`,
+`dsh.client.inject`) so it mounts as a hot-pluggable profile bundle with no
+manual file copying. Restart the GUI to load the host half; refresh the browser
+to load the client bundle (`/plugins/dsh-mobilecode/client.js` — the URL id is
+the package name, not the patch row id).
 
 ## Verify
 
