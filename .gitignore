@@ -9,6 +9,7 @@ __pycache__/
 
 # DSH local state
 .dsh-memory/
+.dsh-vision-toolkit/
 ~/.dsh/
 
 # Test artifacts (generated)

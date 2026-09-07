@@ -87,6 +87,11 @@ drawer:
 - `device_apps` / `device_launch_app` — list installed packages (third-party by
   default) so a package name is never guessed / launch one by package or a
   unique substring, with `relaunch` for a cold start.
+- `device_intent` — open anything by Android intent: an `action` (e.g.
+  `android.settings.WIFI_SETTINGS`), a deep-link `uri` (`geo:`, `https://`,
+  `file://`), or an explicit `component` (`pkg/.Activity`). Reaches screens no
+  tap can address. Values are single-quoted for the device shell (apostrophes
+  escaped, control characters refused), so metacharacters stay inert.
 - `device_stream` — drive the live screen stream the panel shows: `start` an
   online device (returns a signed `streamUrl`), `status`, or `stop`. Agents that
   just need to see the screen should prefer `device_screen` / `device_ui_tree`.
@@ -148,6 +153,9 @@ the plain JSON summary (path + UI tree + OCR) with no new error.
     Fix button for auto-fixable checks (PaddleOCR install).
   - **PaddleOCR** — install status, progress log, and the install button.
   - **AI Prompt** — the copyable agent prompt.
+  - **Connection** — the resolved adb binary path and every device `adb` sees
+    (serial, state dot, model, USB / Wi-Fi badge), straight from
+    `GET /connection`. Explains the Wi-Fi reconnect policy.
 - The same settings appear as a **`MobileCode` page in the DSH Settings**
   (registered as a `settings.section` slot, like the other installed plugins),
   so they are reachable from Settings even when the Devices pane is closed.
@@ -159,7 +167,22 @@ the plain JSON summary (path + UI tree + OCR) with no new error.
 `directory` + `platform` body, mirroring mobilecode's `server.devicePreview`
 group — plus setup endpoints: `GET /welcome`, `POST /welcome/dismiss`,
 `GET /doctor`, `POST /doctor/fix {id}`, `GET /ocr`, `POST /ocr/install`,
-`GET/POST /settings`.
+`GET/POST /settings`, `GET /connection`.
+
+**One classified adb boundary** — every serial-targeted adb command runs through
+`adbRun()` in `lib/device-build.js`:
+
+- A transport failure (`device not found` / `offline` / `unauthorized` /
+  `closed` / `no devices`) on a **Wi-Fi serial** (`ip:port`) gets exactly ONE
+  `adb connect` retry. Read-only commands (the `replaySafeAdb` allowlist:
+  `exec-out`/`screencap`/`uiautomator`/`dumpsys`/`getprop`/`logcat`/`cat`/…)
+  then replay automatically; **side-effectful ones never do** — a replayed tap
+  could double-tap — they raise "reconnected — call again" instead.
+- USB serials and non-transport failures (a real `am start` error, a
+  `SecurityException`) surface as classified, actionable errors — the old
+  silent `capture()` → `""` swallowing is gone on agent-facing paths.
+- Tolerant internal callers (boot polling, IME checks) opt back into
+  best-effort with an explicit `.catch(() => "")`.
 
 ## How it works
 
