@@ -46,14 +46,32 @@ drawer:
   failed or incomplete), the Metro state, and `complete`.
 - `device_detect` — which platforms a directory supports, the framework, and
   the first attached Android device.
+- A bundled **`device-ui-automation` playbook skill** (registered through
+  `ctx.skills.register()`, defensively — hosts without the skill service just
+  skip it): the observe-once → act-with-an-assertion → observe-again workflow,
+  which observer to reach for first, how to confirm an action landed via
+  `expect_text`/`expect_gone`, and the real-device safety rules.
 - `device_screen` — see what is on an attached Android device: a PNG screenshot
   plus the uiautomator UI hierarchy (text + pixel bounds) and **local PaddleOCR**
   text recognition (text + confidence + box), so an agent can read the screen
   and tap by coordinates. Also returns the foreground activity and screen size.
+- `device_ui_tree` — the default screen observer: the uiautomator hierarchy as a
+  typed node tree (`type`/`text`/`contentDesc`/`resourceId`/`bounds`, with
+  `enabled`/`focused`/`clickable`/`scrollable` emitted only in their interesting
+  state), case-insensitive `filter` that keeps ancestors of matches, `max_depth`,
+  and a 40 KB cap that prunes the deepest levels first. Resource-ids are the most
+  stable tap handles.
+- `device_tap_element` — tap a control by identity: `resource_id` matches the
+  node's resource-id, `text` matches its text or content-desc; exact match wins
+  over substring, nested duplicates collapse to the outermost control, ambiguity
+  lists up to 8 candidates instead of guessing, and disabled / off-screen nodes
+  are refused with the fix. `expect_text` / `expect_gone` verify the tap in the
+  same call — one round trip, no separate screenshot.
 - `device_input` — act on the device: tap / swipe / type / press a key at
   **absolute pixel coordinates** (the same space `device_screen` returns — take
   the box center `x=(x1+x2)/2, y=(y1+y2)/2`). The deterministic control loop is
-  `device_screen → device_input → device_screen`.
+  `device_ui_tree → device_tap_element`, falling back to
+  `device_screen → device_input` when a surface exposes no accessibility tree.
 - `device_log` — device logs: logcat `main`/`crash`/`events`/`kernel` buffers
   (kernel = dmesg, needs adb root — works on emulators) with an optional
   case-insensitive substring filter, capped line count.
