@@ -10,6 +10,20 @@ Native / native), starts the `serve-sim` / `serve-avd` preview servers, builds,
 installs and launches the app on the booted simulator or emulator — and exposes
 the same to the agent through tools.
 
+## Installation
+
+```bash
+dsh plugin --profile web add dsh-mobilecode
+```
+
+(For a fresh profile or when the plugin was added while DSH was running, restart
+the web GUI — host modules bind at startup and the client bundle is served from
+the installed package.)
+
+## Support
+
+If you find this useful, you can support development at ko-fi.com/spix18
+
 ## What the plugin provides
 
 **Device pane (web GUI)** — a sidebar entry ("Devices") opening a right-hand
