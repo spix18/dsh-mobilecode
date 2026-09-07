@@ -67,11 +67,26 @@ drawer:
   lists up to 8 candidates instead of guessing, and disabled / off-screen nodes
   are refused with the fix. `expect_text` / `expect_gone` verify the tap in the
   same call — one round trip, no separate screenshot.
+- `device_wait_for` — wait for text to appear or disappear: polls the UI tree
+  every ~600 ms and falls back to local PaddleOCR on textless surfaces (WebView /
+  Compose / canvas). A timeout is a normal `matched: false` result, never an
+  error — one call replaces an agent-side poll loop.
 - `device_input` — act on the device: tap / swipe / type / press a key at
   **absolute pixel coordinates** (the same space `device_screen` returns — take
   the box center `x=(x1+x2)/2, y=(y1+y2)/2`). The deterministic control loop is
   `device_ui_tree → device_tap_element`, falling back to
   `device_screen → device_input` when a surface exposes no accessibility tree.
+  Typing is ASCII over plain adb; non-ASCII (CJK, emoji) is routed through the
+  ADBKeyboard IME when installed and refused with the install hint otherwise.
+- `device_action` — device-level verbs beyond touches: `notifications`,
+  `quick_settings`, `collapse`, `lock`, `wake`, `assistant`, `rotate` (cycles
+  0→90→180→270 and pins auto-rotate off).
+- `device_boot` / `device_shutdown` — boot an AVD by name and wait until it
+  finishes booting (adopts a running emulator for the same AVD) / shut an
+  emulator down (`adb emu kill`; refuses physical devices).
+- `device_apps` / `device_launch_app` — list installed packages (third-party by
+  default) so a package name is never guessed / launch one by package or a
+  unique substring, with `relaunch` for a cold start.
 - `device_log` — device logs: logcat `main`/`crash`/`events`/`kernel` buffers
   (kernel = dmesg, needs adb root — works on emulators) with an optional
   case-insensitive substring filter, capped line count.

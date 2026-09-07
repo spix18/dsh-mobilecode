@@ -1,7 +1,7 @@
 {
   "name": "dsh-mobilecode",
   "description": "MobileCode for the dsh web GUI: detect iOS/Android projects, run serve-sim / serve-avd preview servers, and build-install-launch the app on the simulator or emulator from the session — plus agent tools (device_run, device_detect). Hot-pluggable — mounted via the profile bundle list + cordis.patch.yml, no dsh source changes.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "packageManager": "pnpm@11.22.0",
   "engines": {
