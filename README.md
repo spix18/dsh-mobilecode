@@ -87,6 +87,34 @@ drawer:
 - `device_apps` / `device_launch_app` — list installed packages (third-party by
   default) so a package name is never guessed / launch one by package or a
   unique substring, with `relaunch` for a cold start.
+- `device_stream` — drive the live screen stream the panel shows: `start` an
+  online device (returns a signed `streamUrl`), `status`, or `stop`. Agents that
+  just need to see the screen should prefer `device_screen` / `device_ui_tree`.
+
+**Live device stream (the panel)**
+
+The Devices pane shows a real-time mirror of the attached device. It is produced
+**in-process** — no inner loopback port, no external helper:
+
+- ONE persistent `adb exec-out "while :; do screencap -p; done"` child streams
+  ~8 fps with zero per-frame process cost (spawning adb per frame caps at ~5 fps
+  and 100% churn). A quote-safe PNG splitter cuts the concatenated output into
+  frames by walking chunk headers (no marker scanning, no false positives).
+- The browser `<img>` reads a `multipart/x-mixed-replace` body served straight
+  from the latest-frame buffer. Backpressure is **latest-wins**: a slow tab skips
+  frames instead of building an unbounded queue or watching a growing delay.
+- A consumer refcount + idle timeout stops the loop when nobody is watching; a
+  keep-alive restarts a crashed loop; switching devices retires the old child.
+- **Tap or drag directly on the screen** to drive the device; a Back / Home /
+  Recents / Rotate / Power bar sits below it, and a device picker switches which
+  online device streams (it never boots one — use `device_boot` for that).
+- **Security**: every stream route sits behind a loopback + trusted-browser
+  transport fence (peer address, loopback `Host`, `Sec-Fetch-Site` / `Origin` —
+  so a LAN client cannot spoof localhost and a DNS-rebinding `Host` is rejected),
+  and the stream URL is an **HMAC-SHA256 capability** signed with a per-install
+  key (`~/.dsh/mobilecode/stream-access.key`, `0600`), expiring within 10 minutes
+  and re-minted automatically. Coordinates are normalized 0..1 of the streamed
+  frame, so one mapping serves every rotation.
 - `device_log` — device logs: logcat `main`/`crash`/`events`/`kernel` buffers
   (kernel = dmesg, needs adb root — works on emulators) with an optional
   case-insensitive substring filter, capped line count.
