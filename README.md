@@ -115,6 +115,17 @@ The Devices pane shows a real-time mirror of the attached device. It is produced
   key (`~/.dsh/mobilecode/stream-access.key`, `0600`), expiring within 10 minutes
   and re-minted automatically. Coordinates are normalized 0..1 of the streamed
   frame, so one mapping serves every rotation.
+
+**Multimodal screenshots**
+
+When the routed model declares image input, `device_screen` delivers the
+screenshot **as an image block** — the model literally sees the screen instead of
+reading a file path. This mirrors the in-tree `read_image` tool: the PNG is
+committed to DSH's durable attachment store (`ctx.get('attachments').saveImage`)
+and returned as a `{type:'image', attachment}` content block, gated on
+`llm.resolveModelInfo(...).inputModalities`. It **degrades, never refuses**: a
+text-only route, a headless profile, or a host without the attachment store keeps
+the plain JSON summary (path + UI tree + OCR) with no new error.
 - `device_log` — device logs: logcat `main`/`crash`/`events`/`kernel` buffers
   (kernel = dmesg, needs adb root — works on emulators) with an optional
   case-insensitive substring filter, capped line count.
