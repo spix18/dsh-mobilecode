@@ -93,8 +93,10 @@ drawer:
   tap can address. Values are single-quoted for the device shell (apostrophes
   escaped, control characters refused), so metacharacters stay inert.
 - `device_stream` — drive the live screen stream the panel shows: `start` an
-  online device (returns a signed `streamUrl`), `status`, or `stop`. Agents that
-  just need to see the screen should prefer `device_screen` / `device_ui_tree`.
+  online device (returns a signed `streamUrl` **and** an `android-stream`
+  `presentationMeta` that renders a compact conversation card and auto-opens the
+  panel), `status`, or `stop`. Agents that just need to see the screen should
+  prefer `device_screen` / `device_ui_tree`.
 
 **Live device stream (the panel)**
 
@@ -110,9 +112,20 @@ The Devices pane shows a real-time mirror of the attached device. It is produced
   frames instead of building an unbounded queue or watching a growing delay.
 - A consumer refcount + idle timeout stops the loop when nobody is watching; a
   keep-alive restarts a crashed loop; switching devices retires the old child.
-- **Tap or drag directly on the screen** to drive the device; a Back / Home /
-  Recents / Rotate / Power bar sits below it, and a device picker switches which
-  online device streams (it never boots one — use `device_boot` for that).
+- **Tap or drag directly on the screen** to drive the device: a short press is a
+  tap, a long drag becomes a swipe carrying the real press duration (clamped
+  0–5000 ms), coalesced into one control call. A floating **pill toolbar** of SVG
+  icons (Back / Home / Recents / Screenshot / Rotate / Refresh) sits over the
+  stage, and a ☰ **device menu** adds notifications / quick settings / collapse /
+  lock / wake / assistant.
+- The header **device picker** groups online devices (🖥 emulator / 📱 physical,
+  streaming badge) and lists configured AVDs as boot hints (`device_boot` starts
+  one — the picker never does); a **Live** badge shows the streamed serial. Quick
+  sizes (Fit / 100% / S·240 / M·320 presets + a select) and frame styles
+  (none / bezel / device) reshape the stage.
+- **Screenshot** captures a still via `POST /stream/still` (a real `screencap`,
+  embedded as a data URL up to 4 MB) and flips the stage to a still view with a
+  "back to Live" link.
 - **Security**: every stream route sits behind a loopback + trusted-browser
   transport fence (peer address, loopback `Host`, `Sec-Fetch-Site` / `Origin` —
   so a LAN client cannot spoof localhost and a DNS-rebinding `Host` is rejected),
@@ -166,6 +179,44 @@ classified adb boundary (argv-based, quoted, replay-safe):
 - `device_reboot` — reboot into `normal` / `recovery` / `bootloader`
   (the device drops offline and comes back in a minute or two).
 
+**Row & memory tools (v0.7.0)** — ported from
+[ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android):
+
+- `device_ui_rows` — read a list as **rows, not a tree**: clusters repeated
+  sibling nodes of similar height (≥3 rows; page-sized containers and off-screen
+  nodes excluded), aggregates each row's label, and parses counters (`3万`,
+  `1.2k`, `42 items`) into `{key, value, raw}`. Returns
+  `{rows: [{index, group, frame, label, counters}], omittedOffscreen}` — the
+  compact handle for "tap row 7 of this list" without reading a 40 KB UI tree.
+  Optional `filter` keeps rows whose label contains a substring.
+- `device_tap_row` — tap row `index` (from `device_ui_rows`) at row-relative
+  fractions `x`/`y` (default 0.5,0.5 = center). `expect_count {key, delta}` turns
+  the tap into **one verified round trip**: the counter must already be visible
+  in the row before the tap (refused otherwise — never probe an unknown control),
+  and after an 800 ms settle the same row must show the count moved by exactly
+  `delta` (default +1) with the row not having scrolled.
+- `device_meminfo` — a running app's memory profile from `dumpsys meminfo`:
+  TOTAL PSS/RSS/Swap-PSS, the App Summary heap breakdown
+  (Java/Native/Code/Stack/Graphics) and the top PSS categories. Throws when the
+  package has no running process.
+- `device_backtrace` — a thread/crash dump without a debugger: sends SIGQUIT
+  (`kill -3`), waits for ART to write the trace, reads the newest `/data/anr`
+  entry, and falls back to the logcat crash buffer when `/data/anr` is unreadable
+  (`engine: "anr-trace" | "logcat-crash"`). Pass `package_name` or `pid`.
+
+**Conversation surface (v0.7.0)** — the transcript integration ported from
+dsh-android's UI/UX:
+
+- A settled `device_stream` / `device_boot` call renders a **compact card** in
+  the conversation (kind, serial, streaming/failed badge, "⤢ open in panel")
+  instead of a raw JSON blob, and **auto-opens the Devices panel once** when a
+  stream first settles. The card hydrates from the host-projected
+  `presentationMeta` on top-level calls and falls back to parsing the serial out
+  of the durable result text for nested calls; it never crashes on a shape it
+  does not recognize.
+- A **composer capsule** — a green `● <serial>` pill in the input dock — shows
+  while a device streams and the panel is closed; clicking it opens the panel.
+
 **First-run experience & settings**
 
 - On first start after installation, a **welcome window** explains how to use the
@@ -200,7 +251,18 @@ classified adb boundary (argv-based, quoted, replay-safe):
 group — plus setup endpoints: `GET /welcome`, `POST /welcome/dismiss`,
 `GET /doctor`, `POST /doctor/fix {id}`, `GET /ocr`, `POST /ocr/install`,
 `GET/POST /settings`, `GET /connection` — plus the Wi-Fi actions
-`POST /connect` (host/port/pairing code) and `POST /pair-qr` (mDNS QR flow).
+`POST /connect` (host/port/pairing code) and `POST /pair-qr` (mDNS QR flow) —
+plus the live-stream routes `GET /stream/status`, `POST /stream/grant`,
+`POST /stream/control` (tap / swipe / key / long-press, coalesced),
+`POST /stream/devices` (online devices **and** configured AVDs),
+`POST /stream/still` (one `screencap` as a data URL up to 4 MB),
+`POST /stream/device-action` (the `device_action` verbs over the panel fence)
+and `GET /stream/{token}` (the multipart frame body). Every stream error carries
+a machine-readable `code` next to the HTTP status — `token_invalid`,
+`stream_not_running`, `stream_start_failed`, `devices_unavailable`,
+`device_not_found`, `device_offline`, `unknown_action`, `bad_request`,
+`control_failed`, `capture_failed`, `device_action_failed` — so the panel can
+say *why* instead of "something failed".
 
 **One classified adb boundary** — every serial-targeted adb command runs through
 `adbRun()` in `lib/device-build.js`:
