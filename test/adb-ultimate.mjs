@@ -113,6 +113,20 @@ ok("random credentials match the name/password structure", () => {
   assert.match(password, /^[A-Za-z0-9]{21}$/)
 })
 
+console.log("— jsonSafe (lossless DSH tool output) —")
+ok("strips undefined keys and array holes, keeps numbers/strings", () => {
+  const out = DeviceBuild.jsonSafe({ a: 1, b: undefined, c: { d: 'x', e: undefined }, f: [1, undefined, 2], g: NaN, h: Infinity, i: null, j: false })
+  assert.deepEqual(out, { a: 1, c: { d: 'x' }, f: [1, 2], g: null, h: null, i: null, j: false })
+  // round-trips losslessly
+  assert.deepEqual(JSON.parse(JSON.stringify(out)), out)
+})
+ok("parseCpuinfo undefined hardware survives jsonSafe", () => {
+  const cpu = DeviceBuild.parseCpuinfo("processor\t: 0\nvendor_id\t: AuthenticAMD")
+  const out = DeviceBuild.jsonSafe({ cpu })
+  assert.deepEqual(out, { cpu: { cores: 1 } })
+  assert.deepEqual(JSON.parse(JSON.stringify(out)), out)
+})
+
 console.log(`\n${passed} passed`)
 if (process.exitCode) console.error("some checks FAILED")
 
