@@ -17,6 +17,8 @@ vision-api-capability-test/results/
 vision-api-capability-test/expected-outputs/
 test/*.png
 test/*.jpg
+test/fixtures/mesh-probe/build/
+test/fixtures/mesh-probe/build/
 
 # Editor / OS
 .DS_Store

@@ -205,6 +205,54 @@ classified adb boundary (argv-based, quoted, replay-safe):
   (`engine: "anr-trace" | "logcat-crash"`). SIGQUIT refusal (system-uid or
   non-debuggable process) degrades to the crash buffer with an explanatory note
   instead of failing. Pass `package_name` or `pid`.
+- `device_display` — read or change a device's **DPI and resolution**
+  (`wm density` / `wm size`): `get` reports physical + override values, `set`
+  overrides density and/or `width`x`height`, `reset` restores. Layouts reflow
+  instantly — re-observe with `device_screen` after a change.
+- `device_avd_create` — create a **second virtual device** via `avdmanager`;
+  `clone_from` copies an existing AVD's full hardware config (same image, DPI,
+  RAM) so both players behave identically. Boot the new AVD with `device_boot`
+  (a running emulator holds 5554, so device #2 lands on `emulator-5556`).
+- `device_batch` — fire 1..16 input actions **concurrently across devices**
+  (each step carries its own serial + the same fields `device_input` takes).
+  The co-op primitive for "both players press attack on the same frame"; a
+  failing step never blocks the others, and per-step results say what landed.
+- `device_pair_capture` — capture **both devices at the same instant**: one
+  call, parallel screenshots + UI digests, both attached as real image blocks
+  so a vision model watches both players at once. `ocr: true` adds PaddleOCR.
+
+**Co-op mesh (v0.8.0)** — two emulators cannot multicast-discover each other
+(each sits behind its own slirp NAT), but every one of them reaches the host at
+`10.0.2.2`. So the plugin hosts a LocalSend-style JSON pub/sub **hub**: games
+join it and talk through it, and the AI model reads and steers the same wire.
+
+- **Identity**: `POST /mesh/join {serial?, name?, role?}` — the serial pins a
+  stable, random, LocalSend-style callsign (`amber-fox`, `brisk-owl`…); the
+  join returns a per-process token that authorizes every later call.
+- **Sessions**: `POST /mesh/link {with: [names…]}` (2–8 members), then
+  `POST /mesh/send {session, body}` and `GET /mesh/poll?id&token&after&wait`
+  (long-polls up to 30 s). `GET /mesh/peers` shows the roster; `POST /mesh/leave`
+  departs. Everything is JSON, 64 KiB per message.
+- **Network conditions**: each session carries a policy — `latencyMs`,
+  `jitterMs`, `dropPct`, `dupPct`, `throttleKbps` (size-proportional delay) —
+  enforced per recipient by the hub. This is desync testing without touching
+  app code: make player B lag 400 ms with 100 ms jitter and watch the pair cope.
+- **Agent side**: `mesh_status` (who joined, sessions, policies, undelivered
+  mail), `mesh_send` (ghost a message as any peer — the other game receives it
+  as if its partner sent it), `mesh_log` (every join/link/send/drop/dup/tune
+  event, timestamped), `mesh_tune` (set the policy), `mesh_reset`.
+- **Security**: the routes are loopback-only (emulators reach the host loopback
+  via slirp); a request presenting browser headers (`Origin`/`Sec-Fetch-*`)
+  must additionally pass the trusted-browser stream fence, so a random web page
+  can never join a game or read its messages.
+- **Client SDK**: `sdk/mesh-client.mjs` — a ~90-line dependency-free `fetch`
+  client (`join/link/send/inbox`) for Node/Deno/Bun/WebView/React-Native game
+  code; plain HTTP works from any other engine (Unity, Godot, Kotlin).
+
+Typical loop: `device_avd_create` + `device_boot` a clone → both apps
+`join` → `mesh_link` → `device_batch` inputs at both → `device_pair_capture`
+to watch → `mesh_log` to see the traffic → `mesh_tune` to inject real-world
+network pain.
 
 **Conversation surface (v0.7.0)** — the transcript integration ported from
 dsh-android's UI/UX:
@@ -259,7 +307,9 @@ plus the live-stream routes `GET /stream/status`, `POST /stream/grant`,
 `POST /stream/devices` (online devices **and** configured AVDs),
 `POST /stream/still` (one `screencap` as a data URL up to 4 MB),
 `POST /stream/device-action` (the `device_action` verbs over the panel fence)
-and `GET /stream/{token}` (the multipart frame body). Every stream error carries
+and `GET /stream/{token}` (the multipart frame body) — plus the co-op mesh
+routes `POST /mesh/join`, `GET /mesh/peers`, `POST /mesh/{link,send,leave}`,
+`GET /mesh/poll` (see **Co-op mesh** above). Every stream error carries
 a machine-readable `code` next to the HTTP status — `token_invalid`,
 `stream_not_running`, `stream_start_failed`, `devices_unavailable`,
 `device_not_found`, `device_offline`, `unknown_action`, `bad_request`,
@@ -294,8 +344,14 @@ say *why* instead of "something failed".
   lifecycle (park → halt → settle → execute; one project at a time; process
   exit/signal hooks; win32 taskkill tree-kill).
 - `lib/index.js` — host half: engine, `/api/dsh-mobilecode/*` routes (run
-  controls + welcome / doctor / ocr / settings), agent tools, system-prompt
+  controls + welcome / doctor / ocr / settings + mesh), agent tools, system-prompt
   guidance section, `ctx.provide('mobilecode', handle)`.
+- `lib/mesh-hub.js` — the co-op mesh core: peer identity (serial-pinned
+  callsigns + HMAC tokens), sessions, per-session network policy
+  (latency/jitter/drop/dup/throttle), a long-poll inbox, and an event log.
+  Pure + injectable clock/RNG, so `test/mesh-hub.mjs` covers it offline.
+- `sdk/mesh-client.mjs` — dependency-free `fetch` client (join/link/send/
+  poll/inbox/leave) for game code running inside the emulators.
 - `lib/setup.js` — settings store (~/.dsh/mobilecode/settings.json), the plugin
   doctor (health checks + auto-fix), and the detached PaddleOCR installer
   (writes an install script to disk and spawns it via cmd.exe, so the install

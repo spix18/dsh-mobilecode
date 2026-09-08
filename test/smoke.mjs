@@ -12,6 +12,7 @@
 
 import assert from "node:assert/strict"
 import path from "node:path"
+import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import * as DeviceBuild from "../lib/device-build.js"
 import { DevicePreviewEngine } from "../lib/device-preview.js"
@@ -91,6 +92,23 @@ await ok("launch() spawns npx and exits 0", async () => {
   const run = DeviceBuild.exec("npx", ["--version"], {})
   const code = await run.exit
   assert.equal(code, 0)
+})
+
+console.log("— AVD creation toolchain (v0.8.0) —")
+ok("avdmanager resolves in this SDK", () => assert.ok(DeviceBuild.avdmanagerBinary(), "avdmanager.bat not found under cmdline-tools"))
+await ok("installedSystemImages lists at least one image", async () => {
+  const images = await DeviceBuild.installedSystemImages()
+  assert.ok(images.length > 0, "no system images installed")
+  assert.match(images[0], /^system-images;android-\d+;[\w-]+;[\w-]+$/)
+})
+await ok("a real AVD config.ini parses through the clone derivation", async () => {
+  const avds = await DeviceBuild.androidAvds()
+  if (avds.length === 0) { console.log("      (no AVDs on this host — skipping)"); return }
+  const text = readFileSync(DeviceBuild.avdConfigPath(avds[0]), "utf8")
+  const sysdir = /^\s*image\.sysdir\.1\s*=\s*(.+)$/m.exec(text)?.[1]?.trim()
+  assert.ok(sysdir, `no image.sysdir.1 in ${avds[0]}'s config.ini`)
+  const id = sysdir.replace(/\\/g, "/").replace(/\/+$/, "").split("/").join(";")
+  assert.match(id, /^system-images;android-\d+;/)
 })
 
 console.log(`\n${passed} checks passed${process.exitCode ? " (with failures)" : ""}`)
