@@ -138,6 +138,34 @@ the plain JSON summary (path + UI tree + OCR) with no new error.
   emulator binary, and what the plugin currently runs (preview servers, Metro,
   builds per directory).
 
+**Device-ultimate port (v0.6.0)** — tools ported from
+[dsh-adb-ultimate](https://github.com/newborne/dsh-adb-ultimate), rebuilt on the
+classified adb boundary (argv-based, quoted, replay-safe):
+
+- `device_scroll_to` — scroll until an element (`resource_id` or `text`/
+  content-desc, exact then substring) comes into view, then report it with its
+  center tap point. Completes the control loop for long lists: `device_wait_for`
+  waits without scrolling, this brings the element on-screen so a follow-up
+  `device_tap_element` can hit it. Defaults to 8 swipes, swipe direction
+  `up`/`left`.
+- `device_connect` — attach a Wi-Fi device: `adb connect <host>:<port>`
+  (default port 5555); pass `pairing_code` + `pairing_port` (default 37000) for
+  the first-time Android 11+ "Pair device" flow. Reattaching a known device
+  needs no code.
+- `device_pair_qr` — the full pairing journey in one call: generates a
+  `WIFI:T:ADB;S:...;P:...;;` QR string (render it with any QR generator and scan
+  with Settings → Connected devices → Pair by QR), polls `adb mdns services`
+  (adb ≥ 31) for `_adb-tls-pairing._tcp`, then auto-pairs and connects.
+- `device_perf` — one-shot RAM / battery / CPU snapshot (meminfo +
+  `dumpsys battery` + cpuinfo → used %, level/temp/status/health, cores).
+- `device_app_info` — per-app detail from `dumpsys package`: versionName/
+  versionCode, minSdk/targetSdk, requested permissions, exported activities.
+- `device_install` / `device_uninstall` — sideload a local APK
+  (`-r -g`: replace + grant runtime permissions) / remove an app (optionally
+  `-k` keep data). Uninstall is destructive.
+- `device_reboot` — reboot into `normal` / `recovery` / `bootloader`
+  (the device drops offline and comes back in a minute or two).
+
 **First-run experience & settings**
 
 - On first start after installation, a **welcome window** explains how to use the
@@ -155,7 +183,11 @@ the plain JSON summary (path + UI tree + OCR) with no new error.
   - **AI Prompt** — the copyable agent prompt.
   - **Connection** — the resolved adb binary path and every device `adb` sees
     (serial, state dot, model, USB / Wi-Fi badge), straight from
-    `GET /connection`. Explains the Wi-Fi reconnect policy.
+    `GET /connection`. A **connect form** (device IP + port, optional pairing
+    code + pair port → `POST /connect`) and a **Pair by QR** button
+    (`POST /pair-qr`, one blocking call that generates the `WIFI:T:ADB` QR,
+    waits for the mDNS scan and auto-pairs + connects) plus an in-line refresh.
+    Explains the Wi-Fi reconnect policy.
 - The same settings appear as a **`MobileCode` page in the DSH Settings**
   (registered as a `settings.section` slot, like the other installed plugins),
   so they are reachable from Settings even when the Devices pane is closed.
@@ -167,7 +199,8 @@ the plain JSON summary (path + UI tree + OCR) with no new error.
 `directory` + `platform` body, mirroring mobilecode's `server.devicePreview`
 group — plus setup endpoints: `GET /welcome`, `POST /welcome/dismiss`,
 `GET /doctor`, `POST /doctor/fix {id}`, `GET /ocr`, `POST /ocr/install`,
-`GET/POST /settings`, `GET /connection`.
+`GET/POST /settings`, `GET /connection` — plus the Wi-Fi actions
+`POST /connect` (host/port/pairing code) and `POST /pair-qr` (mDNS QR flow).
 
 **One classified adb boundary** — every serial-targeted adb command runs through
 `adbRun()` in `lib/device-build.js`:
