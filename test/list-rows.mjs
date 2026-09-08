@@ -78,6 +78,9 @@ ok("bare number is skipped (no classifier)", () => {
 ok("digit-suffix serial like 1A215 is skipped (trailing-digit guard)", () => {
   assert.deepEqual(RowList.parseCounters("sn-1A215"), [])
 })
+ok("punctuation-only key from serial-like model string is skipped", () => {
+  assert.deepEqual(RowList.parseCounters("About emulated device sdk_gphone64_x86_64"), [])
+})
 ok("commas parse: \"12,345 followers\" → 12345", () => {
   assert.deepEqual(RowList.parseCounters("12,345 followers"), [{ key: "followers", value: 12345, raw: "12,345 followers" }])
 })

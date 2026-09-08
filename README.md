@@ -202,7 +202,9 @@ classified adb boundary (argv-based, quoted, replay-safe):
 - `device_backtrace` — a thread/crash dump without a debugger: sends SIGQUIT
   (`kill -3`), waits for ART to write the trace, reads the newest `/data/anr`
   entry, and falls back to the logcat crash buffer when `/data/anr` is unreadable
-  (`engine: "anr-trace" | "logcat-crash"`). Pass `package_name` or `pid`.
+  (`engine: "anr-trace" | "logcat-crash"`). SIGQUIT refusal (system-uid or
+  non-debuggable process) degrades to the crash buffer with an explanatory note
+  instead of failing. Pass `package_name` or `pid`.
 
 **Conversation surface (v0.7.0)** — the transcript integration ported from
 dsh-android's UI/UX:
