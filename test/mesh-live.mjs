@@ -84,8 +84,10 @@ if (probe !== 401 && probe !== 200) {
   process.exit(1)
 }
 
-// 1. two guests
-const rows = (await DeviceBuild.devices()).filter((r) => r.state === "device")
+// 1. two guests (emulators preferred — a physical device may also be attached)
+const rows = (await DeviceBuild.devices())
+  .filter((r) => r.state === "device")
+  .sort((a, b) => (b.serial.startsWith("emulator-") ? 1 : 0) - (a.serial.startsWith("emulator-") ? 1 : 0))
 if (rows.length < 2) { console.error(`need two booted emulators, found ${rows.length}`); process.exit(1) }
 const [s1, s2] = rows.map((r) => r.serial)
 console.log(`guests: ${s1} + ${s2}`)

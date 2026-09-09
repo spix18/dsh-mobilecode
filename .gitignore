@@ -10,6 +10,7 @@ __pycache__/
 # DSH local state
 .dsh-memory/
 .dsh-vision-toolkit/
+.emu-logs/
 ~/.dsh/
 
 # Test artifacts (generated)
