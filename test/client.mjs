@@ -164,10 +164,19 @@ ok("0.9.0 co-op split view is wired into the bundle", () => {
 })
 ok("0.10.0 preview-server merge: Android card has no Start server; boot moved to the picker", () => {
   assert.match(clientSrc, /const preview = platform === "ios";/, "Android card still owns a preview server")
-  assert.match(clientSrc, /screen: Live device/, "Android→Live-device pointer caption missing")
+  assert.match(clientSrc, /screen: Device 1/, "Android→device pointer caption missing")
   assert.match(clientSrc, /streamPost\("\/boot"/, "picker boot action missing")
   assert.match(clientSrc, /⏻ boot/, "boot button label missing")
   assert.match(clientSrc, /deviceCount/, "pill no longer tracks attached devices")
+})
+ok("0.11.0 naming + power: Device 1/2, ⏻ off, shared sizing, mac-only iOS fallback", () => {
+  assert.match(clientSrc, /null, "Device 1"/, "stream card header not renamed")
+  assert.match(clientSrc, /null, "Device 2"/, "co-op pane not renamed")
+  assert.match(clientSrc, /streamPost\("\/off", \{ serial/, "power-off action missing")
+  assert.match(clientSrc, /⏻ off/, "off button label missing")
+  assert.match(clientSrc, /style: stageSizeStyle\(sizeMode\)/, "Device 2 does not share Device 1's sizing")
+  assert.match(clientSrc, /runningAvds\.has/, "running AVDs still offer a boot button")
+  assert.match(clientSrc, /fallbackPlatforms\(info\?\.os\)/, "iOS card not gated on host OS")
 })
 
 const moduleExports = factory(stubRequire)

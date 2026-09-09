@@ -8,9 +8,10 @@ with embedded iOS Simulator / Android Emulator support) into
 It detects the mobile project in a directory (iOS / Android, Expo / React
 Native / native), builds, installs and launches the app on the booted
 simulator or emulator — and exposes the same to the agent through tools. The
-device screen has exactly **one** home in the panel: the **Live device**
-stream. (0.10.0 merged the old Android "Start server" preview into it —
-`serve-avd` is retired for the panel; `serve-sim` remains the iOS-only view.)
+device screen has exactly **one** home in the panel: the **Device 1** live
+stream (co-op adds a second pane, **Device 2**). (0.10.0 merged the old Android
+"Start server" preview into it — `serve-avd` is retired for the panel;
+`serve-sim` remains the iOS-only view.)
 
 ## Installation
 
@@ -32,12 +33,14 @@ If you find this useful, you can support development at [ko-fi.com/spix18](https
 drawer:
 
 - project directory input (persisted in localStorage) + Detect
-- platform pills — Android: attached-device status (its view is the Live
-  device card); iOS: preview-server status
+- platform pills — Android: attached-device status (its view is the Device 1
+  card); iOS: preview-server status. The iOS pill and card only render when the
+  host OS is macOS — on Windows/Linux there is no simulator to drive, so 0.11.0
+  stopped showing that dead affordance.
 - per platform: **Run app / Stop app**, build status/step/error and an
   expandable log tail. iOS additionally **Start/Stop server** with the
   embedded serve-sim iframe — Android's duplicated serve-avd preview was
-  merged into the Live device card in 0.10.0
+  merged into the Device 1 card in 0.10.0
 - a Metro (bundler) status card
 - polls `GET /api/dsh-mobilecode` every 2 s while open
 
@@ -105,9 +108,10 @@ drawer:
   that just need to see the screen should still prefer `device_screen` /
   `device_ui_tree`.
 
-**Live device stream (the panel)**
+**Live device stream (the panel — Device 1 / Device 2)**
 
-The Devices pane shows a real-time mirror of the attached device. It is produced
+The Devices pane shows a real-time mirror of the attached device. The primary
+card is **Device 1**; co-op docks a second, **Device 2**. It is produced
 **in-process** — no inner loopback port, no external helper:
 
 - ONE persistent `adb exec-out "while :; do screencap -p; done"` child **per

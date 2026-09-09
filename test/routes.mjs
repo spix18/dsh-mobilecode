@@ -82,9 +82,10 @@ console.log("— GET info —")
     if (!Array.isArray(r.json.platforms) || r.json.platforms.length === 0) throw new Error("no platforms")
     if (!Array.isArray(r.json.servers) || !Array.isArray(r.json.builds)) throw new Error("read model incomplete")
   })
-  ok("GET info carries deviceCount (0.10.0 pill data source)", () => {
+  ok("GET info carries deviceCount + os (0.10.0/0.11.0 panel fields)", () => {
     // devices() is real adb in-process; undefined only when adb is absent entirely.
     if (r.json.deviceCount !== undefined && !Number.isInteger(r.json.deviceCount)) throw new Error(`deviceCount ${typeof r.json.deviceCount}`)
+    if (r.json.os !== process.platform) throw new Error(`os ${r.json.os}`)
   })
 }
 
@@ -127,6 +128,21 @@ console.log("— POST /boot — the merged Start-server action (0.10.0) —")
   ok("POST /boot without browser headers → 403", () => { if (noFence.status !== 403) throw new Error(`status ${noFence.status}`) })
   const wrongMethod = await call(route, { method: "GET", extraHeaders: BROWSER })
   ok("GET /boot → 405", () => { if (wrongMethod.status !== 405) throw new Error(`status ${wrongMethod.status}`) })
+}
+
+console.log("— POST /off — device power-off (0.11.0) —")
+{
+  const route = byPath("/api/dsh-mobilecode/off")
+  ok("off route registered", () => { if (!route) throw new Error("/off missing") })
+  const BROWSER = { origin: "http://localhost:3080", "sec-fetch-site": "same-origin" }
+  const missing = await call(route, { method: "POST", body: {}, extraHeaders: BROWSER })
+  ok("POST /off without serial → 400", () => { if (missing.status !== 400) throw new Error(`status ${missing.status}`) })
+  const badSerial = await call(route, { method: "POST", body: { serial: "; adb kill-server" }, extraHeaders: BROWSER })
+  ok("POST /off shell-ish serial → 400 (never reaches adb)", () => { if (badSerial.status !== 400) throw new Error(`status ${badSerial.status}`) })
+  const ghost = await call(route, { method: "POST", body: { serial: "emulator-19999" }, extraHeaders: BROWSER })
+  ok("POST /off not-online → 404", () => { if (ghost.status !== 404) throw new Error(`status ${ghost.status}`) })
+  const wrongMethod = await call(route, { method: "GET", extraHeaders: BROWSER })
+  ok("GET /off → 405", () => { if (wrongMethod.status !== 405) throw new Error(`status ${wrongMethod.status}`) })
 }
 
 console.log("— setup routes (welcome / doctor / ocr / settings) —")

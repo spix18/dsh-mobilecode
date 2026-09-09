@@ -3,7 +3,7 @@
  *
  * Boots the real DSH web GUI in a headless Chrome, opens the Devices drawer,
  * clicks the ⧉ co-op toggle, and asserts the human path end to end: two live
- * <img> panes side by side (Player A + Player B), both streaming real frames
+ * <img> panes side by side (Device 1 + Device 2), both streaming real frames
  * (naturalWidth > 0), /stream/devices reporting both serials streaming, and a
  * screenshot saved for eyeball verification.
  *
@@ -108,14 +108,14 @@ try {
       natural: imgs.map((i) => i.naturalWidth + "x" + i.naturalHeight),
       rect: [r1, r2].filter(Boolean).map((r) => Math.round(r.left) + "," + Math.round(r.top) + " " + Math.round(r.width) + "x" + Math.round(r.height)),
       sideBySide: !!r1 && !!r2 && (r1.right <= r2.left + 4 || r2.right <= r1.left + 4),
-      playerB: !!pane && /Player B/.test(pane.textContent),
+      playerB: !!pane && /Device 2/.test(pane.textContent),
     };
   })()`)
   console.log(JSON.stringify(coop))
   ok("section switched to CSS grid", coop.grid === "flex" || /px/.test(coop.cols || ""), coop.grid + " / " + coop.cols)
   ok("two live panes rendered side by side", coop.sideBySide && coop.count === 2)
   ok("BOTH panes carry real decoded frames", coop.bothUp, JSON.stringify(coop.natural))
-  ok("Player B pane present", coop.playerB)
+  ok("Device 2 pane present", coop.playerB)
 
   const flags = await evaluate(`(async function(){
     const r = await fetch("/api/dsh-mobilecode/stream/devices", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
@@ -123,6 +123,23 @@ try {
     return j.devices.filter((d) => d.streaming).map((d) => d.serial);
   })()`)
   ok("/stream/devices shows both panel streams live", Array.isArray(flags) && flags.length >= 2, JSON.stringify(flags))
+
+  console.log("— 0.11.0 height parity: Device 1's Size knob must drive both panes —")
+  await evaluate(`(function(){
+    [...document.querySelectorAll(".mc-live-section .mc-seg button")].find((b) => b.textContent.trim() === "M · 320").click();
+    return true;
+  })()`)
+  await sleep(700)
+  const parity = await evaluate(`(() => {
+    const imgs = [...document.querySelectorAll(".mc-live-section img")];
+    const h = imgs.map((i) => Math.round(i.getBoundingClientRect().height));
+    return { h, equal: h.length === 2 && Math.abs(h[0] - h[1]) <= 2 };
+  })()`)
+  ok("Device 2 matches Device 1 height at M·320", parity.equal, JSON.stringify(parity))
+  await evaluate(`(function(){
+    [...document.querySelectorAll(".mc-live-section .mc-seg button")].find((b) => b.textContent.trim() === "Fit").click();
+    return true;
+  })()`)
 
   console.log("— screenshot —")
   await sleep(1200)
@@ -149,7 +166,7 @@ try {
   const merged = await evaluate(`(function(){
     const body = document.querySelector(".mc-body");
     const serverBtns = [...body.querySelectorAll("button")].filter((b) => /^(Start server|Stop server|Server )/.test(b.textContent.trim())).map((b) => b.textContent.trim());
-    const caption = [...body.querySelectorAll(".mc-card-head")].some((hd) => /screen: Live device/.test(hd.textContent));
+    const caption = [...body.querySelectorAll(".mc-card-head")].some((hd) => /screen: Device 1/.test(hd.textContent));
     const runApp = [...body.querySelectorAll("button")].some((b) => b.textContent.trim() === "Run app");
     const pill = [...body.querySelectorAll(".mc-pill")].find((p) => /Android/.test(p.textContent));
     return { serverBtns, caption, runApp, pillTitle: pill?.getAttribute("title") ?? "" };
@@ -163,7 +180,7 @@ try {
   await evaluate(`(function(){ document.querySelector(".mc-picker > .mc-btn").click(); return true })()`)
   await sleep(400)
   const bootRows = await evaluate(`[...document.querySelectorAll(".mc-picker-pop .mc-picker-row button")].map((b) => b.textContent.trim())`)
-  ok("picker exposes one-click AVD boot (merged Start-server feature)", Array.isArray(bootRows) && bootRows.length > 0 && bootRows.every((t) => t === "⏻ boot"), JSON.stringify(bootRows))
+  ok("picker exposes one-click AVD boot + emulator power-off", Array.isArray(bootRows) && bootRows.includes("⏻ boot") && bootRows.includes("⏻ off") && bootRows.every((t) => t === "⏻ boot" || t === "⏻ off"), JSON.stringify(bootRows))
   const shot2 = await send("Page.captureScreenshot", { format: "png" })
   const out2 = path.join(os.tmpdir(), "mc-merged-boot.png")
   fs.writeFileSync(out2, Buffer.from(shot2.result.data, "base64"))
