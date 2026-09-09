@@ -158,13 +158,17 @@ try {
   // The pill's dot tracks deviceCount (new server); the title shape is client-merged
   // either way, so the probe passes before the user restarts the GUI.
   ok("Android pill re-pointed at attached-device status", /Android device attached/i.test(merged.pillTitle), merged.pillTitle)
-  const bootRows = await evaluate(`(function(){
-    document.querySelector(".mc-picker > .mc-btn").click();
-    const rows = [...document.querySelectorAll(".mc-picker-pop .mc-picker-row button")].map((b) => b.textContent.trim());
-    document.querySelector(".mc-picker > .mc-btn").click();
-    return rows;
-  })()`)
+  // DSH's React root flushes a programmatic click() one tick later — query
+  // synchronously and you race the popover into nonexistence.
+  await evaluate(`(function(){ document.querySelector(".mc-picker > .mc-btn").click(); return true })()`)
+  await sleep(400)
+  const bootRows = await evaluate(`[...document.querySelectorAll(".mc-picker-pop .mc-picker-row button")].map((b) => b.textContent.trim())`)
   ok("picker exposes one-click AVD boot (merged Start-server feature)", Array.isArray(bootRows) && bootRows.length > 0 && bootRows.every((t) => t === "⏻ boot"), JSON.stringify(bootRows))
+  const shot2 = await send("Page.captureScreenshot", { format: "png" })
+  const out2 = path.join(os.tmpdir(), "mc-merged-boot.png")
+  fs.writeFileSync(out2, Buffer.from(shot2.result.data, "base64"))
+  console.log("saved: " + out2)
+  await evaluate(`(function(){ const t=document.querySelector(".mc-picker > .mc-btn"); if (t) t.click(); return true })()`)
 } finally {
   socket.close()
   if (chrome) { chrome.kill(); await sleep(700); fs.rmSync(udd, { recursive: true, force: true }) }
