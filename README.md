@@ -6,9 +6,11 @@ with embedded iOS Simulator / Android Emulator support) into
 [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-Harness).
 
 It detects the mobile project in a directory (iOS / Android, Expo / React
-Native / native), starts the `serve-sim` / `serve-avd` preview servers, builds,
-installs and launches the app on the booted simulator or emulator — and exposes
-the same to the agent through tools.
+Native / native), builds, installs and launches the app on the booted
+simulator or emulator — and exposes the same to the agent through tools. The
+device screen has exactly **one** home in the panel: the **Live device**
+stream. (0.10.0 merged the old Android "Start server" preview into it —
+`serve-avd` is retired for the panel; `serve-sim` remains the iOS-only view.)
 
 ## Installation
 
@@ -30,10 +32,12 @@ If you find this useful, you can support development at [ko-fi.com/spix18](https
 drawer:
 
 - project directory input (persisted in localStorage) + Detect
-- platform pills (iOS / Android) with live server status
-- per platform: **Start/Stop server**, **Run app / Stop app**, an embedded
-  iframe of the serve-sim / serve-avd stream, build status/step/error and an
-  expandable log tail
+- platform pills — Android: attached-device status (its view is the Live
+  device card); iOS: preview-server status
+- per platform: **Run app / Stop app**, build status/step/error and an
+  expandable log tail. iOS additionally **Start/Stop server** with the
+  embedded serve-sim iframe — Android's duplicated serve-avd preview was
+  merged into the Live device card in 0.10.0
 - a Metro (bundler) status card
 - polls `GET /api/dsh-mobilecode` every 2 s while open
 
@@ -125,8 +129,11 @@ The Devices pane shows a real-time mirror of the attached device. It is produced
   stage, and a ☰ **device menu** adds notifications / quick settings / collapse /
   lock / wake / assistant.
 - The header **device picker** groups online devices (🖥 emulator / 📱 physical,
-  streaming badge) and lists configured AVDs as boot hints (`device_boot` starts
-  one — the picker never does); a **Live** badge shows the streamed serial. Quick
+  streaming badge) and lists configured AVDs with a one-click **⏻ boot** button
+  (`POST /boot`, the merged device-start action from the retired Start-server
+  flow: validate → spawn detached → adopt if already running → wait boot
+  complete → the card streams it immediately); a **Live** badge shows the
+  streamed serial. Quick
   sizes (Fit / 100% / S·240 / M·320 presets + a select) and frame styles
   (none / bezel / device) reshape the stage.
 - **Screenshot** captures a still via `POST /stream/still` (a real `screencap`,
@@ -318,6 +325,8 @@ group — plus setup endpoints: `GET /welcome`, `POST /welcome/dismiss`,
 plus the live-stream routes `GET /stream/status`, `POST /stream/grant`,
 `POST /stream/control` (tap / swipe / key / long-press, coalesced),
 `POST /stream/devices` (online devices **and** configured AVDs),
+`POST /boot {avd}` (the panel's merged one-click AVD boot — validated name,
+adopt-if-running, detached spawn, resolves once boot-completed),
 `POST /stream/still` (one `screencap` as a data URL up to 4 MB),
 `POST /stream/device-action` (the `device_action` verbs over the panel fence)
 and `GET /stream/{token}` (the multipart frame body) — plus the co-op mesh

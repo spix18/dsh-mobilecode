@@ -162,6 +162,13 @@ ok("0.9.0 co-op split view is wired into the bundle", () => {
   assert.match(clientSrc, /h\(LiveStreamSection, null\)/, "panel still mounts the bare card")
   assert.match(clientSrc, /\.mc-live-section\.coop/, "co-op layout CSS missing")
 })
+ok("0.10.0 preview-server merge: Android card has no Start server; boot moved to the picker", () => {
+  assert.match(clientSrc, /const preview = platform === "ios";/, "Android card still owns a preview server")
+  assert.match(clientSrc, /screen: Live device/, "Android→Live-device pointer caption missing")
+  assert.match(clientSrc, /streamPost\("\/boot"/, "picker boot action missing")
+  assert.match(clientSrc, /⏻ boot/, "boot button label missing")
+  assert.match(clientSrc, /deviceCount/, "pill no longer tracks attached devices")
+})
 
 const moduleExports = factory(stubRequire)
 ok("factory exports apply + inject", () => {

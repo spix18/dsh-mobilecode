@@ -135,6 +135,36 @@ try {
   await sleep(800)
   const collapsed = await evaluate(`document.querySelectorAll('.mc-live-section .mc-live-stage img').length`)
   ok("toggle-off removes the second pane", collapsed === 1, String(collapsed))
+
+  console.log("— 0.10.0 merge: detect a real project, Android card must NOT carry a preview server —")
+  await evaluate(`(function(){
+    const inp = document.querySelector(".mc-input");
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    setter.call(inp, "C:\\\\Users\\\\Administrator\\\\Desktop\\\\mobilecode-example");
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    [...document.querySelectorAll(".mc-row .mc-btn")].find((b) => b.textContent.trim() === "Detect").click();
+    return true;
+  })()`)
+  await sleep(3000) // detect POST + info render
+  const merged = await evaluate(`(function(){
+    const body = document.querySelector(".mc-body");
+    const serverBtns = [...body.querySelectorAll("button")].filter((b) => /^(Start server|Stop server|Server )/.test(b.textContent.trim())).map((b) => b.textContent.trim());
+    const caption = [...body.querySelectorAll(".mc-card-head")].some((hd) => /screen: Live device/.test(hd.textContent));
+    const runApp = [...body.querySelectorAll("button")].some((b) => b.textContent.trim() === "Run app");
+    const pill = [...body.querySelectorAll(".mc-pill")].find((p) => /Android/.test(p.textContent));
+    return { serverBtns, caption, runApp, pillTitle: pill?.getAttribute("title") ?? "" };
+  })()`)
+  ok("Android card dropped its duplicate preview server", merged.serverBtns.length === 0 && merged.caption && merged.runApp, JSON.stringify(merged))
+  // The pill's dot tracks deviceCount (new server); the title shape is client-merged
+  // either way, so the probe passes before the user restarts the GUI.
+  ok("Android pill re-pointed at attached-device status", /Android device attached/i.test(merged.pillTitle), merged.pillTitle)
+  const bootRows = await evaluate(`(function(){
+    document.querySelector(".mc-picker > .mc-btn").click();
+    const rows = [...document.querySelectorAll(".mc-picker-pop .mc-picker-row button")].map((b) => b.textContent.trim());
+    document.querySelector(".mc-picker > .mc-btn").click();
+    return rows;
+  })()`)
+  ok("picker exposes one-click AVD boot (merged Start-server feature)", Array.isArray(bootRows) && bootRows.length > 0 && bootRows.every((t) => t === "⏻ boot"), JSON.stringify(bootRows))
 } finally {
   socket.close()
   if (chrome) { chrome.kill(); await sleep(700); fs.rmSync(udd, { recursive: true, force: true }) }

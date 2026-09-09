@@ -36,11 +36,11 @@ const plugin = await import(pathToFileURL(pluginDir + "/lib/index.js").href)
 plugin.apply(ctx, { defaultDirectory: target })
 
 /** Drive one route handler with a request made of real-shaped objects. */
-async function call(route, { method = "GET", query = "", body, remoteAddress = "127.0.0.1", host = "localhost:3080" } = {}) {
+async function call(route, { method = "GET", query = "", body, remoteAddress = "127.0.0.1", host = "localhost:3080", extraHeaders = {} } = {}) {
   const req = {
     method,
     url: route.path + query,
-    headers: { host },
+    headers: { host, ...extraHeaders },
     socket: { remoteAddress },
     [Symbol.asyncIterator]() {
       const chunks = body === undefined ? [] : [Buffer.from(JSON.stringify(body), "utf8")]
@@ -82,6 +82,10 @@ console.log("— GET info —")
     if (!Array.isArray(r.json.platforms) || r.json.platforms.length === 0) throw new Error("no platforms")
     if (!Array.isArray(r.json.servers) || !Array.isArray(r.json.builds)) throw new Error("read model incomplete")
   })
+  ok("GET info carries deviceCount (0.10.0 pill data source)", () => {
+    // devices() is real adb in-process; undefined only when adb is absent entirely.
+    if (r.json.deviceCount !== undefined && !Number.isInteger(r.json.deviceCount)) throw new Error(`deviceCount ${typeof r.json.deviceCount}`)
+  })
 }
 
 console.log("— loopback guard —")
@@ -106,6 +110,23 @@ console.log("— POST actions (no-op paths return current info) —")
   ok("POST run without platform → 400", () => { if (bad.status !== 400) throw new Error(`status ${bad.status}`) })
   const wrongMethod = await call(byPath("/api/dsh-mobilecode/start"), { method: "GET" })
   ok("GET on POST route → 405", () => { if (wrongMethod.status !== 405) throw new Error(`status ${wrongMethod.status}`) })
+}
+
+console.log("— POST /boot — the merged Start-server action (0.10.0) —")
+{
+  const route = byPath("/api/dsh-mobilecode/boot")
+  ok("boot route registered", () => { if (!route) throw new Error("/boot missing") })
+  const BROWSER = { origin: "http://localhost:3080", "sec-fetch-site": "same-origin" }
+  const missing = await call(route, { method: "POST", body: {}, extraHeaders: BROWSER })
+  ok("POST /boot without avd → 400", () => { if (missing.status !== 400) throw new Error(`status ${missing.status}`) })
+  const badName = await call(route, { method: "POST", body: { avd: "; rm -rf" }, extraHeaders: BROWSER })
+  ok("POST /boot shell-ish avd name → 400 (never spawned)", () => { if (badName.status !== 400) throw new Error(`status ${badName.status}`) })
+  const unknown = await call(route, { method: "POST", body: { avd: "no_such_avd_xyz" }, extraHeaders: BROWSER })
+  ok("POST /boot unknown AVD → 400", () => { if (unknown.status !== 400) throw new Error(`status ${unknown.status}`) })
+  const noFence = await call(route, { method: "POST", body: { avd: "x" } })
+  ok("POST /boot without browser headers → 403", () => { if (noFence.status !== 403) throw new Error(`status ${noFence.status}`) })
+  const wrongMethod = await call(route, { method: "GET", extraHeaders: BROWSER })
+  ok("GET /boot → 405", () => { if (wrongMethod.status !== 405) throw new Error(`status ${wrongMethod.status}`) })
 }
 
 console.log("— setup routes (welcome / doctor / ocr / settings) —")
