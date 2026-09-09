@@ -177,6 +177,8 @@ ok("0.11.0 naming + power: Device 1/2, ⏻ off, shared sizing, mac-only iOS fall
   assert.match(clientSrc, /style: stageSizeStyle\(sizeMode\)/, "Device 2 does not share Device 1's sizing")
   assert.match(clientSrc, /runningAvds\.has/, "running AVDs still offer a boot button")
   assert.match(clientSrc, /fallbackPlatforms\(info\?\.os\)/, "iOS card not gated on host OS")
+  assert.match(clientSrc, /"PaddleOCR 3\.x/, "OCR hint still claims the wrong major (installer pins 3.7.0)")
+  assert.doesNotMatch(clientSrc, /PaddleOCR 2\.x/, "stale 2.x copy survived")
 })
 
 const moduleExports = factory(stubRequire)
