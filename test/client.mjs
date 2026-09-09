@@ -169,12 +169,14 @@ ok("0.10.0 preview-server merge: Android card has no Start server; boot moved to
   assert.match(clientSrc, /⏻ boot/, "boot button label missing")
   assert.match(clientSrc, /deviceCount/, "pill no longer tracks attached devices")
 })
-ok("0.11.0 naming + power: Device 1/2, ⏻ off, shared sizing, mac-only iOS fallback", () => {
+ok("0.11.0 naming + power: Device 1/2, ⏻ off, mac-only iOS fallback", () => {
   assert.match(clientSrc, /null, "Device 1"/, "stream card header not renamed")
   assert.match(clientSrc, /null, "Device 2"/, "co-op pane not renamed")
   assert.match(clientSrc, /streamPost\("\/off", \{ serial/, "power-off action missing")
   assert.match(clientSrc, /⏻ off/, "off button label missing")
-  assert.match(clientSrc, /style: stageSizeStyle\(sizeMode\)/, "Device 2 does not share Device 1's sizing")
+  assert.match(clientSrc, /style: stageSizeStyle\(sizeMode\)/, "Device 2 img not sized by the shared helper")
+  assert.match(clientSrc, /mc-coop-pane[\s\S]+h\(StageControls/, "Device 2 has no Size/Frame row of its own")
+  assert.doesNotMatch(clientSrc, /max-height: 48vh/, "coop CSS height cap survived (breaks Fit-mode parity)")
   assert.match(clientSrc, /runningAvds\.has/, "running AVDs still offer a boot button")
   assert.match(clientSrc, /fallbackPlatforms\(info\?\.os\)/, "iOS card not gated on host OS")
   assert.match(clientSrc, /"PaddleOCR 3\.x/, "OCR hint still claims the wrong major (installer pins 3.7.0)")

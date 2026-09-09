@@ -133,22 +133,26 @@ card is **Device 1**; co-op docks a second, **Device 2**. It is produced
   stage, and a ☰ **device menu** adds notifications / quick settings / collapse /
   lock / wake / assistant.
 - The header **device picker** groups online devices (🖥 emulator / 📱 physical,
-  streaming badge) and lists configured AVDs with a one-click **⏻ boot** button
+  streaming badge) — each online emulator row carries a **⏻ off** power button
+  (`POST /off` → `adb emu kill`; physical devices are refused) — and lists
+  *stopped* configured AVDs with a one-click **⏻ boot** button
   (`POST /boot`, the merged device-start action from the retired Start-server
   flow: validate → spawn detached → adopt if already running → wait boot
-  complete → the card streams it immediately); a **Live** badge shows the
-  streamed serial. Quick
-  sizes (Fit / 100% / S·240 / M·320 presets + a select) and frame styles
-  (none / bezel / device) reshape the stage.
+  complete → the card streams it immediately); a running AVD appears only as
+  its online row, never a duplicate boot entry. A **Live** badge shows the
+  streamed serial. Quick sizes (Fit / 100% / S·240 / M·320 presets + a select)
+  and frame styles (none / bezel / device) reshape the stage — each stream pane
+  carries its own copy of these controls (0.11.2).
 - **Screenshot** captures a still via `POST /stream/still` (a real `screencap`,
   embedded as a data URL up to 4 MB) and flips the stage to a still view with a
   "back to Live" link.
 - **Co-op split view (⧉, v0.9.0)**: with two or more online devices the card
-  header grows a ⧉ toggle that docks a compact **Player B** pane beside it —
-  its own device select, its own live `<img>`, and its own tap/drag control, so
-  a human watches both players fight at the same instant. Each pane grants its
-  own HMAC capability; closing one pane never stalls or disturbs the other
-  stream.
+  header grows a ⧉ toggle that docks a second **Device 2** pane beside it —
+  its own device select, live `<img>`, tap/drag control, and (since 0.11.2) its
+  own Size/Frame row mirroring Device 1's; both panes default to Fit and share
+  one CSS height cap, so the pair starts identical and can be styled
+  independently. Each pane grants its own HMAC capability; closing one pane
+  never stalls or disturbs the other stream.
 - **Security**: every stream route sits behind a loopback + trusted-browser
   transport fence (peer address, loopback `Host`, `Sec-Fetch-Site` / `Origin` —
   so a LAN client cannot spoof localhost and a DNS-rebinding `Host` is rejected),

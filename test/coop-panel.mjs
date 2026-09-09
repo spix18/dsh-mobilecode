@@ -124,9 +124,23 @@ try {
   })()`)
   ok("/stream/devices shows both panel streams live", Array.isArray(flags) && flags.length >= 2, JSON.stringify(flags))
 
-  console.log("— 0.11.0 height parity: Device 1's Size knob must drive both panes —")
+  console.log("— 0.11.2 parity: default Fit + each pane's own Size/Frame row —")
+  const fitParity = await evaluate(`(() => {
+    const imgs = [...document.querySelectorAll(".mc-live-section img")];
+    const h = imgs.map((i) => Math.round(i.getBoundingClientRect().height));
+    return { h, equal: h.length === 2 && Math.abs(h[0] - h[1]) <= 2 };
+  })()`)
+  ok("panes equal height in default Fit", fitParity.equal, JSON.stringify(fitParity))
+  const knobs = await evaluate(`({
+    d1segs: document.querySelectorAll(".mc-live-section > .mc-card:first-child .mc-live-size .mc-seg").length,
+    d2segs: document.querySelectorAll(".mc-coop-pane .mc-live-size .mc-seg").length,
+    d2sel: document.querySelectorAll(".mc-coop-pane .mc-live-sizesel").length,
+  })`)
+  ok("both panes carry their own Size/Frame controls", knobs.d1segs === 2 && knobs.d2segs === 2 && knobs.d2sel === 1, JSON.stringify(knobs))
   await evaluate(`(function(){
-    [...document.querySelectorAll(".mc-live-section .mc-seg button")].find((b) => b.textContent.trim() === "M · 320").click();
+    for (const card of document.querySelectorAll(".mc-live-section > .mc-card")) {
+      [...card.querySelectorAll(".mc-live-size .mc-seg button")].find((b) => b.textContent.trim() === "M · 320").click();
+    }
     return true;
   })()`)
   await sleep(700)
@@ -135,11 +149,7 @@ try {
     const h = imgs.map((i) => Math.round(i.getBoundingClientRect().height));
     return { h, equal: h.length === 2 && Math.abs(h[0] - h[1]) <= 2 };
   })()`)
-  ok("Device 2 matches Device 1 height at M·320", parity.equal, JSON.stringify(parity))
-  await evaluate(`(function(){
-    [...document.querySelectorAll(".mc-live-section .mc-seg button")].find((b) => b.textContent.trim() === "Fit").click();
-    return true;
-  })()`)
+  ok("equal height at M·320 set independently on both panes", parity.equal, JSON.stringify(parity))
 
   console.log("— screenshot —")
   await sleep(1200)
