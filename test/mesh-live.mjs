@@ -93,14 +93,33 @@ const [s1, s2] = rows.map((r) => r.serial)
 console.log(`guests: ${s1} + ${s2}`)
 for (const serial of [s1, s2]) await DeviceBuild.adbRun(serial, ["push", dexPath, "/data/local/tmp/mesh.dex"])
 
-/** Run one probe command inside a guest; returns the parsed JSON line. */
+/** Run one probe command inside a guest; returns the parsed JSON line.
+ *  app_process: <start-dir> <start-class> are SEPARATE args ("/" + "Mesh");
+ *  a glued "/Mesh" makes the runtime read the URL as the class name.
+ *  Retries transient slirp SYN drops (observed on a busy host loopback); safe
+ *  because /mesh/poll is cursor-based, so a replayed attempt sees same mail. */
 async function guest(serial, mode, ...modeArgs) {
-  const out = await DeviceBuild.adbRun(serial, [
-    "shell", "CLASSPATH=/data/local/tmp/mesh.dex", "app_process", "/Mesh", GUEST_BASE, mode, ...modeArgs,
-  ])
-  const line = out.split(/\r?\n/).map((l) => l.trim()).find((l) => l.startsWith("{"))
-  if (!line) throw new Error(`probe ${mode} on ${serial} returned no JSON: ${out.slice(0, 300)}`)
-  return JSON.parse(line)
+  // adb joins argv with spaces and the GUEST /system/bin/sh re-parses it, so
+  // JSON bodies must arrive single-quoted (its double quotes would be eaten:
+  // {"hello":true} -> {hello:true} -> JSONException inside the probe).
+  const remoteArgs = modeArgs.map((a) => (a.startsWith("{") || a.startsWith("[") ? `'${a}'` : a))
+  const backoffs = [0, 1000, 3000, 6000, 12000]
+  let lastError = ""
+  for (let attempt = 0; attempt < backoffs.length; attempt++) {
+    if (backoffs[attempt]) await new Promise((r) => setTimeout(r, backoffs[attempt]))
+    try {
+      const out = await DeviceBuild.adbRun(serial, [
+        "shell", "CLASSPATH=/data/local/tmp/mesh.dex", "app_process", "/", "Mesh", GUEST_BASE, mode, ...remoteArgs,
+      ])
+      const line = out.split(/\r?\n/).map((l) => l.trim()).find((l) => l.startsWith("{"))
+      if (line) return JSON.parse(line)
+      lastError = out.slice(0, 200)
+    } catch (error) {
+      lastError = String(error.message).slice(0, 200)
+    }
+    console.log(`      (${mode} on ${serial} attempt ${attempt + 1}/5 failed: ${lastError})`)
+  }
+  throw new Error(`probe ${mode} on ${serial} failed after ${backoffs.length} attempts: ${lastError}`)
 }
 
 // 2. join from inside both guests (serials pinned by the emulator itself)
