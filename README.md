@@ -95,23 +95,29 @@ drawer:
 - `device_stream` — drive the live screen stream the panel shows: `start` an
   online device (returns a signed `streamUrl` **and** an `android-stream`
   `presentationMeta` that renders a compact conversation card and auto-opens the
-  panel), `status`, or `stop`. Agents that just need to see the screen should
-  prefer `device_screen` / `device_ui_tree`.
+  panel), `status`, or `stop`. Streams are **per-serial and independent** since
+  0.9.0 — start both players of a co-op game and `status` lists every live
+  stream (`serials`); `stop` ends one (with `serial`) or all of them. Agents
+  that just need to see the screen should still prefer `device_screen` /
+  `device_ui_tree`.
 
 **Live device stream (the panel)**
 
 The Devices pane shows a real-time mirror of the attached device. It is produced
 **in-process** — no inner loopback port, no external helper:
 
-- ONE persistent `adb exec-out "while :; do screencap -p; done"` child streams
-  ~8 fps with zero per-frame process cost (spawning adb per frame caps at ~5 fps
-  and 100% churn). A quote-safe PNG splitter cuts the concatenated output into
-  frames by walking chunk headers (no marker scanning, no false positives).
+- ONE persistent `adb exec-out "while :; do screencap -p; done"` child **per
+  streamed device** runs at ~8 fps with zero per-frame process cost (spawning
+  adb per frame caps at ~5 fps and 100% churn). A quote-safe PNG splitter cuts
+  the concatenated output into frames by walking chunk headers (no marker
+  scanning, no false positives).
 - The browser `<img>` reads a `multipart/x-mixed-replace` body served straight
   from the latest-frame buffer. Backpressure is **latest-wins**: a slow tab skips
   frames instead of building an unbounded queue or watching a growing delay.
-- A consumer refcount + idle timeout stops the loop when nobody is watching; a
-  keep-alive restarts a crashed loop; switching devices retires the old child.
+- Each stream owns its consumer refcount + idle timeout (nobody watching that
+  device → its child stops) and crash keep-alive. Since 0.9.0 starting device B
+  **never** retires device A's child — co-op streams are fully independent, and
+  a frame from one device can never leak into the other viewer's pipe.
 - **Tap or drag directly on the screen** to drive the device: a short press is a
   tap, a long drag becomes a swipe carrying the real press duration (clamped
   0–5000 ms), coalesced into one control call. A floating **pill toolbar** of SVG
@@ -126,6 +132,12 @@ The Devices pane shows a real-time mirror of the attached device. It is produced
 - **Screenshot** captures a still via `POST /stream/still` (a real `screencap`,
   embedded as a data URL up to 4 MB) and flips the stage to a still view with a
   "back to Live" link.
+- **Co-op split view (⧉, v0.9.0)**: with two or more online devices the card
+  header grows a ⧉ toggle that docks a compact **Player B** pane beside it —
+  its own device select, its own live `<img>`, and its own tap/drag control, so
+  a human watches both players fight at the same instant. Each pane grants its
+  own HMAC capability; closing one pane never stalls or disturbs the other
+  stream.
 - **Security**: every stream route sits behind a loopback + trusted-browser
   transport fence (peer address, loopback `Host`, `Sec-Fetch-Site` / `Origin` —
   so a LAN client cannot spoof localhost and a DNS-rebinding `Host` is rejected),
@@ -252,7 +264,8 @@ join it and talk through it, and the AI model reads and steers the same wire.
 Typical loop: `device_avd_create` + `device_boot` a clone → both apps
 `join` → `mesh_link` → `device_batch` inputs at both → `device_pair_capture`
 to watch → `mesh_log` to see the traffic → `mesh_tune` to inject real-world
-network pain.
+network pain. For the human at the keyboard: open the panel and hit ⧉ — the
+Devices pane mirrors **both** devices live, side by side, tappable (v0.9.0).
 
 **Conversation surface (v0.7.0)** — the transcript integration ported from
 dsh-android's UI/UX:

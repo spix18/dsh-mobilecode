@@ -155,6 +155,13 @@ ok("bundle id and factory registration", () => {
   fn(stubRequire, window)
   if (typeof factory !== "function") throw new Error("factory not captured")
 })
+ok("0.9.0 co-op split view is wired into the bundle", () => {
+  assert.match(clientSrc, /function useLiveStream\(/, "shared stream hook missing")
+  assert.match(clientSrc, /function CoopPane\(/, "second co-op pane missing")
+  assert.match(clientSrc, /function LiveStreamSection\(/, "section wrapper missing")
+  assert.match(clientSrc, /h\(LiveStreamSection, null\)/, "panel still mounts the bare card")
+  assert.match(clientSrc, /\.mc-live-section\.coop/, "co-op layout CSS missing")
+})
 
 const moduleExports = factory(stubRequire)
 ok("factory exports apply + inject", () => {
