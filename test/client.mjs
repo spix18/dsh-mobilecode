@@ -182,6 +182,18 @@ ok("0.11.0 naming + power: Device 1/2, ⏻ off, mac-only iOS fallback", () => {
   assert.match(clientSrc, /"PaddleOCR 3\.x/, "OCR hint still claims the wrong major (installer pins 3.7.0)")
   assert.doesNotMatch(clientSrc, /PaddleOCR 2\.x/, "stale 2.x copy survived")
 })
+ok("0.11.3 fit parity + shutdown hygiene + version chip", () => {
+  assert.match(clientSrc, /\.mc-live-stage\.fit \{[^}]*height: 60vh/, "fit stage does not lock height")
+  assert.match(clientSrc, /const stageClassFor = \(f, fit = false\)/, "stageClassFor missing fit flag")
+  assert.equal(clientSrc.split('stageClassFor(frame, sizeMode.mode === "fit")').length, 3, "both panes must opt into fit parity")
+  assert.match(clientSrc, /device offline/, "presence watcher missing")
+  assert.match(clientSrc, /autoPicked/, "card can silently re-grab a device after ⏻ off")
+  assert.match(clientSrc, /if \(next !== cur\) \{ setSerial\(next\); live\.reset\(\); \}/, "CoopPane re-picks without dropping the stream")
+  const chip = clientSrc.match(/const MC_VERSION = "([\d.]+)"/)
+  assert.ok(chip, "version chip missing")
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"))
+  assert.equal(chip[1], pkg.version, "MC_VERSION chip drifts from package.json")
+})
 
 const moduleExports = factory(stubRequire)
 ok("factory exports apply + inject", () => {
