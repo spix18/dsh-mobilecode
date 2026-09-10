@@ -124,20 +124,40 @@ try {
   })()`)
   ok("/stream/devices shows both panel streams live", Array.isArray(flags) && flags.length >= 2, JSON.stringify(flags))
 
-  console.log("— 0.11.2/3 parity: fit stages locked, per-pane rows, independent presets —")
+  console.log("— 0.11.2/3/5 parity: fit stages hug device AR, per-pane rows, shared controls —")
   const fitParity = await evaluate(`(() => {
     const stages = [...document.querySelectorAll(".mc-live-section .mc-live-stage")];
     const sh = stages.map((s) => Math.round(s.getBoundingClientRect().height));
     const fit = stages.filter((s) => s.classList.contains("fit")).length;
-    return { sh, fit, equal: sh.length === 2 && fit === 2 && Math.abs(sh[0] - sh[1]) <= 2 };
+    const arVars = stages.map((s) => s.style.getPropertyValue("--mc-ar-n"));
+    return { sh, fit, arVars, equal: sh.length === 2 && fit === 2 && Math.abs(sh[0] - sh[1]) <= 2 };
   })()`)
   ok("both Fit stages carry .fit and share one locked height", fitParity.equal, JSON.stringify(fitParity))
+  ok("Fit stages carry --mc-ar-n from real frames", fitParity.arVars.every((v) => parseFloat(v) > 0 && parseFloat(v) < 1), JSON.stringify(fitParity.arVars))
   const knobs = await evaluate(`({
     d1segs: document.querySelectorAll(".mc-live-section > .mc-card:first-child .mc-live-size .mc-seg").length,
     d2segs: document.querySelectorAll(".mc-coop-pane .mc-live-size .mc-seg").length,
     d2sel: document.querySelectorAll(".mc-coop-pane .mc-live-sizesel").length,
+    d1tools: document.querySelectorAll(".mc-live-section > .mc-card:first-child .mc-toolbar button").length,
+    d2tools: document.querySelectorAll(".mc-coop-pane .mc-toolbar button").length,
+    menus: document.querySelectorAll(".mc-live-section .mc-menu button").length,
   })`)
   ok("both panes carry their own Size/Frame controls", knobs.d1segs === 2 && knobs.d2segs === 2 && knobs.d2sel === 1, JSON.stringify(knobs))
+  ok("both panes carry nav toolbar + device menu (0.11.5)", knobs.d1tools === 6 && knobs.d2tools === 5 && knobs.menus === 2, JSON.stringify(knobs))
+  // Responsive wrap (0.11.5): narrow the resizable DRAWER → panes stack.
+  const wideTop = await evaluate(`({ tops: [...document.querySelectorAll(".mc-live-section .mc-card")].map((c) => Math.round(c.getBoundingClientRect().top)) })`)
+  await evaluate(`(function(){ const v = document.querySelector(".dsh-mobilecode-view"); v.__w = v.style.width; v.style.width = "400px"; return true; })()`)
+  await sleep(600)
+  const narrowTop = await evaluate(`({
+    cols: getComputedStyle(document.querySelector(".mc-live-section.coop")).gridTemplateColumns.split(" ").length,
+    tops: [...document.querySelectorAll(".mc-live-section .mc-card")].map((c) => Math.round(c.getBoundingClientRect().top)),
+  })`)
+  await evaluate(`(function(){ const v = document.querySelector(".dsh-mobilecode-view"); v.style.width = v.__w; return true; })()`)
+  await sleep(600)
+  const backTop = await evaluate(`({ tops: [...document.querySelectorAll(".mc-live-section .mc-card")].map((c) => Math.round(c.getBoundingClientRect().top)) })`)
+  ok("narrow window wraps the panes vertically (auto-fit)", narrowTop.cols === 1 && Math.abs(narrowTop.tops[1] - narrowTop.tops[0]) > 100, JSON.stringify(narrowTop))
+  ok("wide window restores side-by-side", backTop.tops.length === 2 && Math.abs(backTop.tops[0] - backTop.tops[1]) < 10, JSON.stringify({ wideTop: wideTop.tops, backTop: backTop.tops }))
+
   await evaluate(`(function(){
     for (const card of document.querySelectorAll(".mc-live-section > .mc-card")) {
       [...card.querySelectorAll(".mc-live-size .mc-seg button")].find((b) => b.textContent.trim() === "M · 320").click();
