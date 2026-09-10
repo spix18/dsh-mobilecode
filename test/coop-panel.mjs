@@ -158,37 +158,6 @@ try {
   fs.writeFileSync(out, Buffer.from(shot.result.data, "base64"))
   console.log("saved: " + out)
 
-  if (process.env.MC_TEST_OFF === "1") {
-    console.log("— 0.11.3 shutdown: ⏻ off must clear Live + frozen frame (presence watcher) —")
-    const d2 = await evaluate(`document.querySelector(".mc-coop-pane select")?.value ?? ""`)
-    const d1 = await evaluate(`(document.querySelector(".mc-live-section > .mc-card:first-child .mc-picker button")?.textContent || "").replace(" ▾", "").trim()`)
-    ok("panes stream two distinct emulators before the kill", !!d1 && !!d2 && d1 !== d2, `${d1} / ${d2}`)
-    await evaluate(`(function(){
-      document.querySelector(".mc-live-section > .mc-card:first-child .mc-picker button").click();
-      return true;
-    })()`)
-    await sleep(400)
-    await evaluate(`(function(){
-      const row = [...document.querySelectorAll(".mc-picker-row")].find((r) => r.textContent.includes(${JSON.stringify(d2)}));
-      [...row.querySelectorAll("button")].find((b) => b.textContent.includes("⏻ off")).click();
-      return true;
-    })()`)
-    await sleep(9000) // /off (~1s) + watcher tick (5s) + refresh tick
-    const d2dead = await evaluate(`!document.querySelector(".mc-coop-pane .mc-live-badge") && !document.querySelector(".mc-coop-pane .mc-live-stage img")`)
-    ok("⏻ off clears Device 2's Live badge + frozen frame", d2dead === true)
-    await evaluate(`(function(){
-      const row = [...document.querySelectorAll(".mc-picker-row")].find((r) => r.textContent.includes(${JSON.stringify(d1)}));
-      [...row.querySelectorAll("button")].find((b) => b.textContent.includes("⏻ off")).click();
-      return true;
-    })()`)
-    await sleep(7000) // must NOT auto-refill: card stays idle after its device dies
-    const d1dead = await evaluate(`(function(){
-      const card = document.querySelector(".mc-live-section > .mc-card:first-child");
-      return !card.querySelector(".mc-live-badge") && !card.querySelector(".mc-live-stage img");
-    })()`)
-    ok("Device 1 stays offline after ⏻ off (no silent re-grab)", d1dead === true)
-  }
-
   console.log("— collapse ⧉ (toggle back) —")
   await evaluate(`(function(){ const b=[...document.querySelectorAll('.mc-card-head button')].find(x=>(x.title||"").includes("Co-op")); b.click(); return true })()`)
   await sleep(800)
@@ -230,18 +199,37 @@ try {
   await evaluate(`(function(){ const t=document.querySelector(".mc-picker > .mc-btn"); if (t) t.click(); return true })()`)
 
   if (process.env.MC_TEST_OFF === "1") {
-    console.log("— 0.11.3 shutdown: ⏻ off must clear Live + frozen frame (presence watcher) —")
-    // Re-dock the second pane: the kill test needs both panes streaming, and it
-    // runs last because it takes the whole environment offline.
+    console.log("— 0.11.4 shutdown: ⏻ off must clear Live + frozen frame, and neither pane may re-grab —")
+    // Runs last: it takes both emulators offline. Re-dock first — the earlier
+    // collapse step left the second pane unmounted.
     await evaluate(`(function(){
       const t = [...document.querySelectorAll(".mc-card-head button")].find((x) => (x.title || "").includes("Co-op"));
       if (t) t.click();
       return true;
     })()`)
     await sleep(3000) // re-dock + refresh + grant + first frame
-    const d2 = await evaluate(`document.querySelector(".mc-coop-pane select")?.value ?? ""`)
+    // Pin Device 1 to an emulator row that ISN'T Device 2's current pick: an
+    // attached physical device sorts first in adb order, and pinning D1 onto
+    // D2's device would clear D2 (the co-op guard rejects the conflict).
+    const d2Before = await evaluate(`document.querySelector(".mc-coop-pane select")?.value ?? ""`)
+    await evaluate(`(function(){
+      document.querySelector(".mc-live-section > .mc-card:first-child .mc-picker button").click();
+      return true;
+    })()`)
+    await sleep(400)
+    await evaluate(`(function(){
+      const skip = ${JSON.stringify(d2Before)};
+      const row = [...document.querySelectorAll(".mc-picker-row")].find((r) => /emulator-\\d+/.test(r.textContent) && !r.textContent.includes(skip));
+      if (row) row.click();
+      return true;
+    })()`)
+    await sleep(8000) // pick + grant, plus CoopPane's refresh tick + grant
     const d1 = await evaluate(`(document.querySelector(".mc-live-section > .mc-card:first-child .mc-picker button")?.textContent || "").replace(" ▾", "").trim()`)
-    ok("panes stream two distinct emulators before the kill", !!d1 && !!d2 && d1 !== d2, `${d1} / ${d2}`)
+    const d2 = await evaluate(`document.querySelector(".mc-coop-pane select")?.value ?? ""`)
+    ok("panes stream two distinct emulators before the kill", /^emulator-\d+$/.test(d1) && /^emulator-\d+$/.test(d2) && d1 !== d2, `${d1} / ${d2}`)
+    // Kill Device 2's serial through Device 1's picker row. The pane must drop
+    // its frozen frame AND its select must clear — silently switching to a
+    // third device reads as "Live never goes away".
     await evaluate(`(function(){
       document.querySelector(".mc-live-section > .mc-card:first-child .mc-picker button").click();
       return true;
@@ -252,9 +240,20 @@ try {
       [...row.querySelectorAll("button")].find((b) => b.textContent.includes("⏻ off")).click();
       return true;
     })()`)
-    await sleep(9000) // /off (~1s) + watcher tick (5s) + refresh tick
-    const d2dead = await evaluate(`!document.querySelector(".mc-coop-pane .mc-live-badge") && !document.querySelector(".mc-coop-pane .mc-live-stage img")`)
-    ok("⏻ off clears Device 2's Live badge + frozen frame", d2dead === true)
+    await sleep(16000) // /off (~1s) + two watcher/refresh cycles covering any phase
+    const d2state = await evaluate(`(function(){
+      const sel = document.querySelector(".mc-coop-pane select");
+      const err = document.querySelector(".mc-coop-pane .mc-error");
+      return {
+        badge: !!document.querySelector(".mc-coop-pane .mc-live-badge"),
+        img: !!document.querySelector(".mc-coop-pane .mc-live-stage img"),
+        sel: sel?.value ?? null,
+        off: document.querySelector(".mc-coop-pane .mc-live-off")?.textContent ?? null,
+        err: err?.textContent ?? null,
+      };
+    })()`)
+    ok("⏻ off clears Device 2's Live badge, frame and pick (no third-device re-grab)",
+      !d2state.badge && !d2state.img && d2state.sel === "", JSON.stringify(d2state))
     await evaluate(`(function(){
       const row = [...document.querySelectorAll(".mc-picker-row")].find((r) => r.textContent.includes(${JSON.stringify(d1)}));
       [...row.querySelectorAll("button")].find((b) => b.textContent.includes("⏻ off")).click();
@@ -265,7 +264,7 @@ try {
       const card = document.querySelector(".mc-live-section > .mc-card:first-child");
       return !card.querySelector(".mc-live-badge") && !card.querySelector(".mc-live-stage img");
     })()`)
-    ok("Device 1 stays offline after ⏻ off (no silent re-grab)", d1dead === true)
+    ok("Device 1 stays idle after ⏻ off (no silent re-grab of a partner)", d1dead === true)
   }
 } finally {
   socket.close()

@@ -156,8 +156,9 @@ card is **Device 1**; co-op docks a second, **Device 2**. It is produced
   independently. Each pane grants its own HMAC capability; closing one pane
   never stalls or disturbs the other stream. A presence watcher polls device
   liveness while streaming: if a device is powered off (⏻ off, crash, unplug)
-  its pane drops the frozen frame and the Live badge within ~5 s, and the card
-  stays idle instead of silently grabbing another device (0.11.3). Both stream
+  its pane drops the frozen frame and the Live badge within ~5 s, and stays
+  idle instead of silently grabbing another device — both panes guard against
+  the re-grab (0.11.3–4). Both stream
   captions carry the running client version (`· v0.11.x`) so a page refresh is
   visibly proven.
 - **Security**: every stream route sits behind a loopback + trusted-browser
