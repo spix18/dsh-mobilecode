@@ -142,25 +142,30 @@ card is **Device 1**; co-op docks a second, **Device 2**. It is produced
   its online row, never a duplicate boot entry. A **Live** badge shows the
   streamed serial. Quick sizes (Fit / 100% / S·240 / M·320 presets + a select)
   and frame styles (none / bezel / device) reshape the stage — each stream pane
-  carries its own copy of these controls (0.11.2). In **Fit** the stage locks
-  to a shared height, so the two panes sit at identical heights even when the
-  devices have different screen aspect ratios (0.11.3).
+  carries its own copy of these controls (0.11.2). In **Fit** the stage hugs
+  the device's real aspect — a poller reads the MJPEG `<img>`'s
+  `naturalWidth/naturalHeight`, sets `--mc-ar-n` on the stage, and the stage
+  box becomes `width: min(100%, 60vh · ar); aspect-ratio: ar` — no letterbox
+  bars, and two devices with different aspect ratios keep equal visible
+  height (0.11.5).
 - **Screenshot** captures a still via `POST /stream/still` (a real `screencap`,
   embedded as a data URL up to 4 MB) and flips the stage to a still view with a
   "back to Live" link.
 - **Co-op split view (⧉, v0.9.0)**: with two or more online devices the card
   header grows a ⧉ toggle that docks a second **Device 2** pane beside it —
-  its own device select, live `<img>`, tap/drag control, and (since 0.11.2) its
-  own Size/Frame row mirroring Device 1's; both panes default to Fit, which
-  locks to one stage height, so the pair starts identical and can be styled
-  independently. Each pane grants its own HMAC capability; closing one pane
-  never stalls or disturbs the other stream. A presence watcher polls device
-  liveness while streaming: if a device is powered off (⏻ off, crash, unplug)
-  its pane drops the frozen frame and the Live badge within ~5 s, and stays
-  idle instead of silently grabbing another device — both panes guard against
-  the re-grab (0.11.3–4). Both stream
-  captions carry the running client version (`· v0.11.x`) so a page refresh is
-  visibly proven.
+  its own device select, live `<img>`, tap/drag control, its own Size/Frame
+  row (0.11.2), and since 0.11.5 the same **nav toolbar** (Back/Home/Recents/
+  Rotate/Refresh) and **☰ device-actions menu** as Device 1. The section is a
+  responsive CSS grid `repeat(auto-fit, minmax(min(250px, 100%), 1fr))`, so
+  dragging the drawer narrow stacks the panes vertically and widening it puts
+  them side by side (0.11.5). Each pane grants its own HMAC capability;
+  closing one pane never stalls or disturbs the other stream. A presence
+  watcher polls device liveness while streaming: if a device is powered off
+  (⏻ off, crash, unplug) its pane drops the frozen frame and the Live badge
+  within ~5 s, and stays idle instead of silently grabbing another device —
+  both panes guard against the re-grab (0.11.3–4). Both stream captions carry
+  the running client version (`· v0.11.x`) so a page refresh is visibly
+  proven.
 - **Security**: every stream route sits behind a loopback + trusted-browser
   transport fence (peer address, loopback `Host`, `Sec-Fetch-Site` / `Origin` —
   so a LAN client cannot spoof localhost and a DNS-rebinding `Host` is rejected),
