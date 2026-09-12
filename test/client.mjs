@@ -196,6 +196,10 @@ ok("0.11.5 responsive fit stages + shared controls", () => {
   const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"))
   assert.equal(chip[1], pkg.version, "MC_VERSION chip drifts from package.json")
 })
+ok("0.11.6 co-op head never wraps (stage tops would misalign ~38px)", () => {
+  assert.match(clientSrc, /\.mc-live-section\.coop \.mc-card-head \{ flex-wrap: nowrap/, "coop head lost nowrap — pane stages will sit at different tops again")
+  assert.match(clientSrc, /\.mc-card-head \.mc-picker \{[^}]*min-width: 0/, "picker cannot shrink inside the nowrap head")
+})
 
 const moduleExports = factory(stubRequire)
 ok("factory exports apply + inject", () => {

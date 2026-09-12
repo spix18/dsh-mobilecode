@@ -1,7 +1,7 @@
 {
   "name": "dsh-mobilecode",
   "description": "MobileCode for the dsh web GUI: detect iOS/Android projects, run preview servers, and drive the simulator/emulator from the session — 37 agent tools (device_run, device_screen, device_ui_tree, device_ui_rows, device_tap_row, device_tap_element, device_wait_for, device_scroll_to, device_input, device_batch, device_intent, device_connect, device_pair_qr, device_perf, device_meminfo, device_backtrace, device_display, device_avd_create, device_pair_capture, device_app_info, device_install, device_uninstall, device_reboot, device_log, live screen stream, multimodal screenshots) plus a host-mediated co-op mesh hub (random callsigns, JSON pub/sub, tunable latency/jitter/drop/dup/throttle) so two virtual devices — and the AI watching them — can talk in real time. One classified adb boundary and a Wi-Fi connect/pair QR flow in the Connection settings tab. Hot-pluggable — mounted via the profile bundle list + cordis.patch.yml, no dsh source changes.",
-  "version": "0.11.5",
+  "version": "0.11.6",
   "type": "module",
   "packageManager": "pnpm@11.22.0",
   "engines": {

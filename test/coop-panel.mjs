@@ -10,6 +10,7 @@
  * Run: node test/coop-panel.mjs   (needs 2+ online devices + a stream-capable server)
  */
 import { spawn } from "node:child_process"
+import crypto from "node:crypto"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -19,6 +20,25 @@ const GUI = "http://127.0.0.1:3080/"
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 const out = path.join(os.tmpdir(), "mc-coop-split.png")
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/** DSH >=0.9 gates the GUI behind an authority-bound cookie; the launch token
+ *  only exists in `dsh web` stdout (never on disk). The probe replicates the
+ *  cookie mint locally from the same stored HMAC secret — it produces the
+ *  exact bytes a browser gets after visiting the printed launch URL, which
+ *  is what the user's own browser does on every page load. */
+function mintSessionCookie() {
+  const credPath = path.join(os.homedir(), ".dsh", ".credentials.yaml")
+  const m = fs.readFileSync(credPath, "utf8").match(/client-connection\/browser-session:\s*\n(?:.*\n)*?\s*secret:\s*(\S+)/)
+  if (!m) throw new Error("browser-session secret not found in " + credPath)
+  const secret = Buffer.from(m[1], "base64url")
+  const authority = "127.0.0.1:3080"
+  const now = Date.now()
+  const payload = { version: 1, authority, issuedAt: now, expiresAt: now + 3600000 }
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url")
+  const sig = crypto.createHmac("sha256", secret).update(body).digest().toString("base64url")
+  const name = "dsh-auth-" + crypto.createHash("sha256").update(authority).digest().toString("base64url")
+  return { name, value: `v1.${body}.${sig}` }
+}
 
 async function cdpReachable() {
   try { return !!(await (await fetch(`${CDP}/json/version`, { signal: AbortSignal.timeout(1500) })).json()).webSocketDebuggerUrl }
@@ -73,6 +93,12 @@ try {
   }
 
   console.log("— boot the GUI —")
+  // Authenticate the headless browser: the launch-token cookie (see
+  // mintSessionCookie above) must be set before the shell will serve the app.
+  await send("Network.enable")
+  const cookie = mintSessionCookie()
+  await send("Network.setCookie", { url: GUI, name: cookie.name, value: cookie.value, path: "/", httpOnly: true, sameSite: "Strict" })
+  await send("Page.navigate", { url: GUI })
   for (let i = 0; i < 24; i++) {
     const booted = await evaluate(`!!document.querySelector('[data-dsh-mobilecode-entry]')`)
     if (booted) break
@@ -134,6 +160,15 @@ try {
   })()`)
   ok("both Fit stages carry .fit and share one locked height", fitParity.equal, JSON.stringify(fitParity))
   ok("Fit stages carry --mc-ar-n from real frames", fitParity.arVars.every((v) => parseFloat(v) > 0 && parseFloat(v) < 1), JSON.stringify(fitParity.arVars))
+  // 0.11.6: the wrapped co-op head offset Device 1's stage ~38px below
+  // Device 2's — heads must stay single-row and stage tops must align.
+  const vAlign = await evaluate(`(() => {
+    const cards = [...document.querySelectorAll(".mc-live-section .mc-card")];
+    const heads = cards.map((c) => { const el = c.querySelector(".mc-card-head"); return el ? Math.round(el.getBoundingClientRect().height) : -1; });
+    const tops = [...document.querySelectorAll(".mc-live-section .mc-live-stage")].map((s) => Math.round(s.getBoundingClientRect().top));
+    return { heads, tops, ok: heads.length === 2 && tops.length === 2 && Math.abs(heads[0] - heads[1]) <= 2 && Math.abs(tops[0] - tops[1]) <= 6 };
+  })()`)
+  ok("co-op heads stay single-row; stage tops align (0.11.6)", vAlign.ok, JSON.stringify(vAlign))
   const knobs = await evaluate(`({
     d1segs: document.querySelectorAll(".mc-live-section > .mc-card:first-child .mc-live-size .mc-seg").length,
     d2segs: document.querySelectorAll(".mc-coop-pane .mc-live-size .mc-seg").length,
