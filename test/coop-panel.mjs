@@ -169,6 +169,20 @@ try {
     return { heads, tops, ok: heads.length === 2 && tops.length === 2 && Math.abs(heads[0] - heads[1]) <= 2 && Math.abs(tops[0] - tops[1]) <= 6 };
   })()`)
   ok("co-op heads stay single-row; stage tops align (0.11.6)", vAlign.ok, JSON.stringify(vAlign))
+  // 0.11.7: the picker must not overflow sideways under the ☰/⧉ buttons —
+  // measure rects and require no horizontal overlap. D1's head carries a
+  // picker BUTTON (serial ▾); D2's carries a <select> — match either.
+  const headFix = await evaluate(`(() => {
+    const heads = [...document.querySelectorAll(".mc-live-section .mc-card-head")];
+    return heads.map((head) => {
+      const menu = [...head.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "☰");
+      const pick = head.querySelector(".mc-picker button,.mc-coop-select");
+      if (!pick || !menu) return { overlap: true, note: "picker or ☰ missing" };
+      const p = pick.getBoundingClientRect(), m = menu.getBoundingClientRect();
+      return { pickRight: Math.round(p.right), menuLeft: Math.round(m.left), overlap: p.right > m.left };
+    });
+  })()`)
+  ok("picker never overlaps the ☰ menu (0.11.7)", headFix.length === 2 && headFix.every((h) => h.overlap === false), JSON.stringify(headFix))
   const knobs = await evaluate(`({
     d1segs: document.querySelectorAll(".mc-live-section > .mc-card:first-child .mc-live-size .mc-seg").length,
     d2segs: document.querySelectorAll(".mc-coop-pane .mc-live-size .mc-seg").length,

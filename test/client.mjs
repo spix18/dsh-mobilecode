@@ -200,6 +200,9 @@ ok("0.11.6 co-op head never wraps (stage tops would misalign ~38px)", () => {
   assert.match(clientSrc, /\.mc-live-section\.coop \.mc-card-head \{ flex-wrap: nowrap/, "coop head lost nowrap — pane stages will sit at different tops again")
   assert.match(clientSrc, /\.mc-card-head \.mc-picker \{[^}]*min-width: 0/, "picker cannot shrink inside the nowrap head")
 })
+ok("0.11.7 picker button tracks its shrinking container (no ☰ overlap)", () => {
+  assert.match(clientSrc, /\.mc-card-head \.mc-picker \.mc-btn \{ width: 100%; min-width: 0; \}/, "picker button can still overflow under the ☰/⧉ buttons when the head shrinks")
+})
 
 const moduleExports = factory(stubRequire)
 ok("factory exports apply + inject", () => {
