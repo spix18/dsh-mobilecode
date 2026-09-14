@@ -374,6 +374,51 @@ say *why* instead of "something failed".
 - Tolerant internal callers (boot polling, IME checks) opt back into
   best-effort with an explicit `.catch(() => "")`.
 
+## Design workbench (0.12 — native Android UI design & verification)
+
+Reusable capabilities for the loop *explore visual directions → approve a
+design → implement native Compose → render → compare → test on Android →
+refine*. App-specific decisions (learning flow, approved directions) live in
+the app project, never hardcoded here.
+
+- **Reference workspace (`preview_gallery`, `config_matrix`, `design_bridge`
+  tools + `/api/dsh-mobilecode/refs|preview|matrix|openpencil/*` routes)** —
+  import PNG/JPEG/WebP design references with metadata (project, screen,
+  state, provenance, approval status); associate device captures (reuses the
+  existing screencap path; originals stored verbatim, alignment transforms
+  kept separate); persisted under `~/.dsh/mobilecode/reference/` across
+  reloads. Header-only decompression fences (no pixel decode server-side, no
+  new dependency).
+- **Visual diff (`POST /refs/diff`)** — two modes, never conflated:
+  `regression` (any changed pixel fails against a recorded native baseline)
+  and `design-reference` (structure comparison, always `needs_review` — the
+  tool ran; that is not a visual pass). Client canvas downsamples; the server
+  reports concrete changed-region clusters; envelopes persist as evidence
+  files. No quality scores anywhere.
+- **Compose preview gallery** — discovers `@PreviewTest` composables of a
+  Gradle project and renders them through **official Compose Preview
+  Screenshot Testing** (`com.android.compose.screenshot`, pinned
+  0.0.1-alpha16, host layoutlib — works on AGP 8.5+ without toolchain
+  migration; compose-ai-tools needs AGP 8.13 and is documented as a blocked
+  alternative). Failed/stale renders are never labeled current; host-rendered
+  ≠ device-verified (see `docs/design/render-adapter-decision.md`).
+- **Configuration matrix (`config_matrix` tool)** — bounded (1..8) risk-based
+  matrices over real device settings (wm size/density, font scale): every
+  case reads back its ACTUAL configuration, captures evidence, and the device
+  is restored to its found state (including pre-existing overrides) on
+  success, failure and cancellation. Physical devices are refused without
+  explicit approval.
+- **OpenPencil bridge (`design_bridge`, optional)** — file-mode CLI adapter:
+  inspect `.fig` docs, export a frame to PNG into the reference workspace,
+  read design variables. Path-confined (realpath + junction-aware); when the
+  CLI is absent everything degrades to honest `not_run` — the workspace stays
+  fully usable with manual imports. OpenPencil exports are web-oriented
+  (PNG/JSX/HTML); no native Compose export is claimed.
+- **Panel** — the Devices drawer gains two cards: **Reference compare**
+  (import / capture / side-by-side / opacity overlay / swipe slider / diff)
+  and **Preview gallery** (discovery, thumbnails, stale badges, per-entry
+  render).
+
 ## How it works
 
 - `lib/device-build.js` — port of `mobilecode/packages/core/src/device-build.ts`:
@@ -395,6 +440,13 @@ say *why* instead of "something failed".
   Pure + injectable clock/RNG, so `test/mesh-hub.mjs` covers it offline.
 - `sdk/mesh-client.mjs` — dependency-free `fetch` client (join/link/send/
   poll/inbox/leave) for game code running inside the emulators.
+- Design workbench modules: `lib/reference-workspace.js` (reference/capture
+  store + header-only image fences), `lib/visual-compare.js` (pure RGBA diff
+  core — the server never pixel-decodes), `lib/preview-gallery.js` (@PreviewTest
+  discovery + Gradle render driver with timeout tree-kill),
+  `lib/config-matrix.js` (bounded matrix runner, snapshot→apply→confirm→
+  capture→restore on every path), `lib/openpencil.js` (optional CLI bridge,
+  realpath/junction-confined).
 - `lib/setup.js` — settings store (~/.dsh/mobilecode/settings.json), the plugin
   doctor (health checks + auto-fix), and the detached PaddleOCR installer
   (writes an install script to disk and spawns it via cmd.exe, so the install
