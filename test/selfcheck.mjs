@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const pluginDir = process.env["DSH_MOBILECODE_DIR"] ?? "C:\\Users\\Administrator\\.dsh\\profiles\\web\\node_modules\\dsh-mobilecode"
-const target = process.argv[2] ?? "C:\\Users\\Administrator\\Desktop\\trachtenberg_method"
+const target = process.argv[2] ?? path.resolve(here, "fixtures", "sample-android")
 
 const registered = { routes: [], tools: [], sections: [] }
 const disposers = []

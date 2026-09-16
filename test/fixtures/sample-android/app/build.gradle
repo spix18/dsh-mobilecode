@@ -1,0 +1,4 @@
+plugins { id("com.android.application") }
+android { namespace = "com.example.sample"; compileSdk = 35
+  defaultConfig { applicationId = "com.example.sample"; minSdk = 26; targetSdk = 35 }
+}

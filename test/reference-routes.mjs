@@ -26,7 +26,7 @@ const ctx = {
   effect(fn) { return fn() },
 }
 const plugin = await import(pathToFileURL(path.join(pluginDir, "lib", "index.js")).href)
-plugin.apply(ctx, { defaultDirectory: "C:\\Users\\Administrator\\Desktop\\trachtenberg_method" })
+plugin.apply(ctx, { defaultDirectory: path.resolve(here, "fixtures", "sample-android") })
 
 async function call(route, { method = "GET", query = "", body, remoteAddress = "127.0.0.1", host = "localhost:3080", extraHeaders = {} } = {}) {
   const req = {

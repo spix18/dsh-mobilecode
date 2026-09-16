@@ -1,0 +1,76 @@
+{
+  "revision": 5,
+  "generatedAt": "2026-09-15T19:51:04.709Z",
+  "revNote": "rev-5: A/B/C-wrong footers restored (wrongBody template had none — critic R3-1 residual confirmed real); rev-4: footers auto-shrink inside canvas; H-wrong amber PROPOSED box (R3-2)",
+  "status": "DESIGN PROPOSALS (SVG mockups; system-mono approximates Chakra Petch/JetBrains Mono; tabular digits simulated) — NOT native renders, NOT human-approved regression baselines",
+  "groundedBehavior": {
+    "slots": "3 underline slots for 451 — count = answer digits (TrainingScreen:1116-1124, :1146-1164)",
+    "wrongToday": "banner 'WRONG // 0 XP'; ALL entered digits tint IncorrectRed together (:1152-1156, :1266-1267)",
+    "keypadOnVerdict": "digits inert; CHECK armed after MANUAL verdict and advances; auto-submitted verdict inert ~700 ms (:777, :1393-1400, :177-182)",
+    "reveal": "correct answer currently shown only inside the How-to-solve dialog (:2128-2133); cockpit explanation panel = additive proposal, no timing/scoring change",
+    "solver": "41×11 verified steps: units copy 1 · tens 4+1=5 · hundreds 4 — 482 differs in TWO places; mockups name both; causes not inferred",
+    "perPlaceMarking": "amber box on TENS (C-wrong) = PROPOSAL, not current behavior"
+  },
+  "limitations": [
+    "visual composition only — touch dimensions, contrast and 320dp/font-scale behavior require device/matrix runs after approval",
+    "H-compact-320dp.png generated separately (resize step below)"
+  ],
+  "files": [
+    {
+      "name": "A-entry.png",
+      "bytes": 103724,
+      "sha256": "74bd3286c627adc55b5021dccc54282385d43a9a1f7ac65bdd83ee0110e2e28c"
+    },
+    {
+      "name": "A-wrong.png",
+      "bytes": 125446,
+      "sha256": "d44170cfb6d7d34ead33ca959b81a2169171d444cf269890a7d1d1cc1a48630b"
+    },
+    {
+      "name": "B-entry.png",
+      "bytes": 121961,
+      "sha256": "a189273f011ba247fa92b9ace1bb39f1ea2760acb15b4a1c6c1bd4f5d5ed55c8"
+    },
+    {
+      "name": "B-wrong.png",
+      "bytes": 129431,
+      "sha256": "32da57e26df895ca322c66fade53dad9f8018a16b85ebd7b638c4ab1ba17c2b2"
+    },
+    {
+      "name": "C-entry.png",
+      "bytes": 112450,
+      "sha256": "a16bbaac69b5573a8339f6772b3fc6e5ef3ef71e442b8fee1c6f37864d79d5ed"
+    },
+    {
+      "name": "C-wrong.png",
+      "bytes": 137451,
+      "sha256": "941b16ebf21857968ee4602fd9269c2196d2343bf7324b3e776d231df69d40a6"
+    },
+    {
+      "name": "H-entry.png",
+      "bytes": 109768,
+      "sha256": "3363f5a3ad2c086bf1f9d11d0b7eac05c6029f099aa01afecc00e6fe670b2774"
+    },
+    {
+      "name": "H-wrong.png",
+      "bytes": 133513,
+      "sha256": "d2430310c9fafb7c0ed62e0678f0a4a005b74e6a5ce10f92c07173daba1a5e08"
+    },
+    {
+      "name": "H-fontscale-2.png",
+      "bytes": 111368,
+      "sha256": "fba520e39de1d761692615365f2c88eee8aa6a9e29b802f7675907ef3b5003ac"
+    },
+    {
+      "name": "H-audio-entry.png",
+      "bytes": 112825,
+      "sha256": "4c6cc18c2b03f4ba219ef35b115ed332b3f7d5b4b74eb6a33299a05499cc2b64"
+    },
+    {
+      "name": "H-compact-320dp.png",
+      "bytes": 77434,
+      "sha256": "ce42de9a22a8a1a5dba735726b980229aed6faaf6a4b034dfc1caf6d7ac5580f",
+      "note": "1080-wide composition uniformly scaled to 840px viewport — mockup only"
+    }
+  ]
+}

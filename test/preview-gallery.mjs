@@ -15,7 +15,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import process from "node:process"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const { discoverPreviewTests, renderState, buildRenderArgs, previewSupportStatus } =
+const { discoverPreviewTests, renderState, buildRenderArgs, previewSupportStatus, inputsFingerprint, manifestPathFor, failurePathFor } =
   await import(pathToFileURL(path.join(here, "..", "lib", "preview-gallery.js")).href)
 
 let passed = 0
@@ -85,25 +85,47 @@ ok(buildRenderArgs(entries[0]).join("|") === ":app:updateDebugScreenshotTest|--t
 ok(previewSupportStatus(app).wrapper && previewSupportStatus(app).screenshotTest, "support status: wrapper + source")
 ok(!previewSupportStatus(mkdtempSync(path.join(tmpdir(), "mc-nogeo-"))).wrapper, "non-gradle dir → wrapper false")
 
-// ── render state / staleness ──────────────────────────────────────────────────
-ok(renderState(app, entries[0]).rendered === false && renderState(app, entries[0]).stale === true, "no PNG → rendered:false stale:true (never masquerades)")
+// ── render state / freshness (manifest-based; audit §4 — mtime alone is NOT currency) ─
+const manifestDir = mkdtempSync(path.join(tmpdir(), "mc-manifest-"))
+const noRender = renderState(app, entries[0], { manifestDir })
+ok(noRender.rendered === false && noRender.freshness === "never_rendered", "no PNG → never_rendered, stale")
 const refDir = path.join(app, "app", "src", "screenshotTestDebug", "reference", "com", "demo", "GalleryTest")
 mkdirSync(refDir, { recursive: true })
 const png = path.join(refDir, "rowA_Row A_deadbeef_0.png")
 const srcFile = path.join(src, "GalleryTest.kt")
-const old = new Date(Date.now() - 60_000)
 writeFileSync(png, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-utimesSync(png, old, old)
-utimesSync(srcFile, old, old)
-const staleEntries = discoverPreviewTests(app) // re-read so sourceMtime reflects the fixture times
-let st = renderState(app, staleEntries[0])
-ok(st.rendered === true && st.stale === false, "recorded PNG newer than source → rendered, not stale")
-// force source newer than png → stale
-const nowF = new Date(Date.now() + 5_000)
-utimesSync(srcFile, nowF, nowF)
-st = renderState(app, discoverPreviewTests(app)[0])
-ok(st.stale === true, "source newer than PNG → stale:true")
-utimesSync(srcFile, old, old)
+let st = renderState(app, discoverPreviewTests(app)[0], { fingerprint: inputsFingerprint(app), manifestDir })
+ok(st.rendered === true && st.freshness === "unknown" && st.stale === true, "PNG without manifest → freshness unknown (never claims current)")
+
+// fingerprint must cover SHARED sources and build config, not just the preview file
+const tokDir = path.join(app, "app", "src", "main", "kotlin")
+mkdirSync(tokDir, { recursive: true })
+const tokFile = path.join(tokDir, "DesignTokens.kt")
+writeFileSync(tokFile, "val Brand = E63E3E\n", "utf8")
+const fp0 = inputsFingerprint(app)
+ok(inputsFingerprint(app) === fp0, "fingerprint stable between edits")
+writeFileSync(tokFile, "val Brand = changed\n", "utf8")
+ok(inputsFingerprint(app) !== fp0, "shared-token change moves fingerprint")
+const fp1 = inputsFingerprint(app)
+writeFileSync(path.join(app, "app", "build.gradle.kts"), "// build changed\n", "utf8")
+ok(inputsFingerprint(app) !== fp1, "build-config change moves fingerprint")
+const resDir = path.join(app, "app", "src", "main", "res", "font")
+mkdirSync(resDir, { recursive: true })
+const fp2 = inputsFingerprint(app)
+writeFileSync(path.join(resDir, "chakra.ttf"), "font-bytes\n", "utf8")
+ok(inputsFingerprint(app) !== fp2, "resource change moves fingerprint")
+
+const e0 = discoverPreviewTests(app)[0]
+const fpNow = inputsFingerprint(app)
+writeFileSync(manifestPathFor(app, e0, manifestDir), JSON.stringify({ runId: "r1", at: new Date().toISOString(), inputsFingerprint: fpNow, renderer: "test" }), "utf8")
+st = renderState(app, discoverPreviewTests(app)[0], { fingerprint: fpNow, manifestDir })
+ok(st.freshness === "fresh_tracked_inputs" && st.stale === false, "manifest + matching fingerprint → fresh_tracked_inputs")
+writeFileSync(tokFile, "val Brand = later\n", "utf8")
+st = renderState(app, discoverPreviewTests(app)[0], { fingerprint: inputsFingerprint(app), manifestDir })
+ok(st.freshness === "stale_inputs_changed" && st.stale === true, "token change after success → stale (PNG kept, labeled)")
+writeFileSync(failurePathFor(app, discoverPreviewTests(app)[0], manifestDir), JSON.stringify({ at: new Date(Date.now() + 5000).toISOString(), exitCode: 124, failureKind: "timeout" }), "utf8")
+st = renderState(app, discoverPreviewTests(app)[0], { fingerprint: inputsFingerprint(app), manifestDir })
+ok(st.freshness === "last_run_failed", "failed/cancelled render invalidates success immediately (older PNG stays visible, labeled)")
 
 // ── HTTP contract + tool registration (stub ctx against mounted copy) ────────
 const pluginDir = process.env.DSH_MOBILECODE_DIR ?? "C:\\Users\\Administrator\\.dsh\\profiles\\web\\node_modules\\dsh-mobilecode"
@@ -144,27 +166,15 @@ const q = encodeURIComponent
   const r6 = await call(renderRoute, { method: "POST", body: { directory: app, class: "com.demo.GalleryTest", method: "rowA" }, headers: { origin: "http://evil.example", "sec-fetch-site": "cross-site" } })
   ok(r6.status === 403, "render browser cross-site → fence 403")
   const r7 = await call(imgRoute, { query: "?directory=" + q(app) + "&class=com.demo.GalleryTest&method=rowA" })
-  ok(r7.status === 200 && r7.hdrs["x-preview-stale"] === "false" && r7.hdrs["x-content-type-options"] === "nosniff", "image serves fresh PNG with stale header + nosniff")
+  ok(r7.status === 200 && r7.hdrs["content-type"] === "image/png" && r7.hdrs["x-content-type-options"] === "nosniff" && r7.hdrs["x-preview-freshness"] === "unknown" && r7.hdrs["x-preview-stale"] === "true", "image serves PNG with nosniff + freshness unknown header (no manifest → never claims current)")
   const r8 = await call(imgRoute, { query: "?directory=" + q(app) + "&class=com.demo.OtherTest&method=colB" })
   ok(r8.status === 404, "image 404 without recorded reference")
 }
 
 console.log(`\n${passed} checks passed`)
 
-// ── opt-in live render (real Gradle, real PNG) ────────────────────────────────
+// ── opt-in live render: BLOCKED by scope (2026-09-15) ──────────────────────────
 if (process.argv.includes("--live")) {
-  const APP = "C:\\Users\\Administrator\\Desktop\\trachtenberg_method"
-  if (!existsSync(path.join(APP, "gradlew.bat"))) { console.log("--live: trachtenberg branch not present, skipped"); process.exit(0) }
-  const { renderPreviewTest } = await import(pathToFileURL(path.join(here, "..", "lib", "preview-gallery.js")).href)
-  const real = discoverPreviewTests(APP)
-  console.log(`live: discovered ${real.length} @PreviewTest entries in ${APP}`)
-  const entry = real.find((e) => e.method === "smokeAppDigits") ?? real[0]
-  if (!entry) { console.log("live: nothing discovered"); process.exit(1) }
-  const t0 = Date.now()
-  const result = await renderPreviewTest(APP, entry, { timeoutMs: 8 * 60_000 })
-  console.log(`live render ${entry.fqClass}.${entry.method}: status=${result.status} exit=${result.exitCode} in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
-  console.log("provenance:", JSON.stringify(result.provenance, null, 2))
-  if (result.status !== "passed" || !existsSync(result.provenance?.pngPath ?? "")) { console.error("LIVE RENDER FAILED"); process.exit(1) }
-  console.log("  ok  live render produced " + result.provenance.pngPath)
-  passed += 1; console.log(`${passed} checks passed (live)`)
+  console.log("--live: BLOCKED by scope — the live Gradle render requires the external reference app project and its build/device environment, which is off-limits. The offline discovery/staleness/manifest/wire coverage above is fully self-contained (synthetic fixture app).")
+  process.exit(2)
 }

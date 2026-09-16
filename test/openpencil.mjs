@@ -16,8 +16,13 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const { probe, confinePath, inspect } = await import(pathToFileURL(path.join(here, "..", "lib", "openpencil.js")).href)
 
 let passed = 0
+let skipped = 0
+const SKIP = "SKIP"
 const ok = async (name, fn) => {
-  try { await fn(); passed += 1; console.log("  ok  " + name) }
+  try {
+    if (await fn() === SKIP) { skipped += 1; console.log("  skip " + name); return }
+    passed += 1; console.log("  ok  " + name)
+  }
   catch (error) { console.error(`FAIL  ${name}: ${error.message}`); process.exitCode = 1 }
 }
 const must = (cond, msg) => { if (!cond) throw new Error(msg) }
@@ -59,7 +64,7 @@ await ok("junction escape rejected for existing and output paths (audit P4-3)", 
   const outsideReal = path.join(outside, "real-target")
   mkdirSync(outsideReal, { recursive: true })
   const link = path.join(root, "link")
-  try { execSync(`cmd /c mklink /J "${link}" "${outsideReal}"`, { stdio: "ignore" }) } catch { return } // no junction rights → skip
+  try { execSync(`cmd /c mklink /J "${link}" "${outsideReal}"`, { stdio: "ignore" }) } catch { return SKIP } // no junction rights → SKIPPED, not passed
   try {
     confinePath(root, link)
     throw new Error("existing-path junction escape ACCEPTED")
@@ -70,7 +75,7 @@ await ok("junction escape rejected for existing and output paths (audit P4-3)", 
   } catch (e) { must(/escapes/.test(String(e.message)), e.message) }
   // broken junction: link2 -> outside/nonexistent (mklink /J allows missing targets)
   const brokenLink = path.join(root, "link2")
-  try { execSync(`cmd /c mklink /J "${brokenLink}" "${path.join(outside, "gone-target")}"`, { stdio: "ignore" }) } catch { return }
+  try { execSync(`cmd /c mklink /J "${brokenLink}" "${path.join(outside, "gone-target")}"`, { stdio: "ignore" }) } catch { return SKIP }
   let rejected = false
   try { confinePath(root, brokenLink) } catch (e) { rejected = true }
   must(rejected, "broken junction accepted for existing path")
@@ -89,4 +94,5 @@ await ok("inspect on missing binary fails gracefully or works (never throws unca
   must(r.status === "passed" || r.status === "failed", r.status)
 })
 
-console.log(`\n${passed} checks passed`)
+console.log(`\n${passed} passed, ${skipped} skipped`)
+if (skipped > 0) console.log("NOTE: skipped junction checks are NOT counted as verified")
