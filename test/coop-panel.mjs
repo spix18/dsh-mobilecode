@@ -259,7 +259,7 @@ try {
   // synchronously and you race the popover into nonexistence.
   await evaluate(`(function(){ document.querySelector(".mc-picker > .mc-btn").click(); return true })()`)
   await sleep(400)
-  const bootRows = await evaluate(`[...document.querySelectorAll(".mc-picker-pop .mc-picker-row button")].map((b) => b.textContent.trim())`)
+  const bootRows = await evaluate(`[...document.querySelectorAll(".mc-picker-pop .mc-picker-row .mc-btn")].map((b) => b.textContent.trim())`)
   ok("picker exposes one-click AVD boot + emulator power-off", Array.isArray(bootRows) && bootRows.includes("⏻ boot") && bootRows.includes("⏻ off") && bootRows.every((t) => t === "⏻ boot" || t === "⏻ off"), JSON.stringify(bootRows))
   const shot2 = await send("Page.captureScreenshot", { format: "png" })
   const out2 = path.join(os.tmpdir(), "mc-merged-boot.png")

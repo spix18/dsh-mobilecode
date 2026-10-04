@@ -43,6 +43,10 @@ drawer:
   merged into the Device 1 card in 0.10.0
 - a Metro (bundler) status card
 - polls `GET /api/dsh-mobilecode` every 2 s while open
+- keyboard-operable and resizable without a mouse (0.12.1): the drawer is a
+  named `complementary` landmark, its drag handle is a focusable
+  `role="separator"` carrying `aria-valuenow` that answers ←/→ and resets on
+  Home, and every scrollable log tail is reachable with Tab
 
 **Agent tools**
 

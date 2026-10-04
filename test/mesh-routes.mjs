@@ -130,9 +130,9 @@ ok("poll after cursor → empty", () => {
 console.log("— agent tools on the same hub —")
 const toolsByName = Object.fromEntries(registered.tools.map((t) => [t.name ?? t.definition?.name, t]))
 const exec = (name, args) => (toolsByName[name]?.execute ?? toolsByName[name]?.definition?.execute)(args)
-ok("37 tools registered incl. the nine new ones", () => {
+ok("40 tools registered incl. the nine new ones", () => {
   const names = registered.tools.map((t) => t.name ?? t.definition?.name)
-  if (names.length !== 37) throw new Error(`have ${names.length}`)
+  if (names.length !== 40) throw new Error(`have ${names.length}`)
   for (const n of ["device_display", "device_avd_create", "device_batch", "device_pair_capture", "mesh_status", "mesh_send", "mesh_log", "mesh_tune", "mesh_reset"]) {
     if (!names.includes(n)) throw new Error(`missing ${n}`)
   }
