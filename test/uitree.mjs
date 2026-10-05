@@ -94,6 +94,95 @@ ok("entities in labels survive the round trip", () => {
   assert.equal(edit.text, "Ctrl & me")
   assert.equal(edit.contentDesc, "search > here")
 })
+
+// A realistic dump: every attribute uiautomator emits, on nodes whose state
+// differs. The point is that state a designer reads off the screen — checked,
+// selected, hint-text, password, long-clickable — reaches the node tree instead
+// of being dropped on the floor.
+const STATE_FIXTURE = [
+  '<hierarchy rotation="0">',
+  '  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.demo" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[0,0][1080,2400]">',
+  '    <node index="0" text="" resource-id="com.demo:id/sw_on" class="android.widget.Switch" package="com.demo" content-desc="" checkable="true" checked="true" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[100,200][400,300]"/>',
+  '    <node index="1" text="" resource-id="com.demo:id/sw_off" class="android.widget.Switch" package="com.demo" content-desc="Bluetooth" checkable="true" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[100,320][400,420]"/>',
+  '    <node index="2" text="Home" resource-id="com.demo:id/tab_home" class="android.widget.TabWidget" package="com.demo" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="true" bounds="[0,2200][360,2400]"/>',
+  '    <node index="3" text="" resource-id="com.demo:id/search" class="android.widget.EditText" package="com.demo" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" hint-text="Search apps" bounds="[0,400][1080,500]"/>',
+  '    <node index="4" text="••••" resource-id="com.demo:id/pin" class="android.widget.EditText" package="com.demo" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="true" selected="false" bounds="[0,520][1080,620]"/>',
+  '    <node index="5" text="Hold me" resource-id="com.demo:id/row" class="android.widget.TextView" package="com.demo" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="true" password="false" selected="false" bounds="[0,640][1080,740]"/>',
+  '    <node index="6" text="System" resource-id="android:id/title" class="android.widget.TextView" package="android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[0,800][1080,900]"/>',
+  '  </node>',
+  // A second root that carries NO package attribute — real dumps contain them
+  // (Compose surfaces, hand-trimmed fixtures). It pins down that an absent
+  // package stays ABSENT rather than being written onto the node as a phantom
+  // field that the next copier then has to decide what to do with.
+  '  <node class="android.view.View" bounds="[0,0][1080,100]"/>',
+  '</hierarchy>',
+].join("\n")
+const stateParsed = UiTree.parseUiTree(STATE_FIXTURE)
+const stateFlat = UiTree.flattenNodes(stateParsed.roots)
+const byId = (id) => stateFlat.find((n) => n.resourceId === id)
+
+ok("checked is recorded on a checkable control, and is absent where it means nothing", () => {
+  // `false` must be PRESENT on a checkable node: an unchecked switch is
+  // information. It must be ABSENT on everything else, or every dump grows a
+  // field that never carries signal.
+  assert.equal(byId("com.demo:id/sw_on").checked, true)
+  assert.equal(byId("com.demo:id/sw_off").checked, false)
+  assert.equal(byId("com.demo:id/tab_home").checked, undefined)
+  assert.equal(stateParsed.roots[0].checked, undefined)
+})
+ok("selected marks the active tab, and absence still means not selected", () => {
+  assert.equal(byId("com.demo:id/tab_home").selected, true)
+  assert.equal(byId("com.demo:id/sw_on").selected, undefined)
+})
+ok("hint-text, password and long-clickable reach the tree", () => {
+  assert.equal(byId("com.demo:id/search").hintText, "Search apps")
+  assert.equal(byId("com.demo:id/pin").password, true)
+  assert.equal(byId("com.demo:id/row").longClickable, true)
+  assert.equal(byId("com.demo:id/sw_on").password, undefined)
+  assert.equal(byId("com.demo:id/sw_on").hintText, undefined)
+})
+ok("focusable records only the anomaly: clickable but unreachable by keyboard", () => {
+  assert.equal(byId("com.demo:id/search").focusable, false)
+  // focusable="true" is the norm for a control, so it is deliberately NOT kept.
+  assert.equal(byId("com.demo:id/sw_on").focusable, undefined)
+  // Nor is focusable="false" on something that was never clickable in the first
+  // place — that is the ordinary state of a label, not an accessibility problem.
+  assert.equal(stateParsed.roots[0].focusable, undefined)
+})
+ok("package is carried only at an app boundary, and index is not carried at all", () => {
+  // The root opens the boundary; a foreign package opens a new one; every node
+  // in between stays silent.
+  assert.equal(stateParsed.roots[0].package, "com.demo")
+  assert.equal(byId("android:id/title").package, "android")
+  assert.equal(byId("com.demo:id/sw_on").package, undefined)
+  // Sibling order IS the children array — a second copy would be a second truth.
+  assert.ok(!("index" in stateFlat[0]), "uiautomator index must not be copied; children order already encodes it")
+})
+ok("no field toNode produces is silently dropped by a copier", () => {
+  // Structural, not a list of names: whatever `toNode` learns to record must
+  // survive flattenNodes / buildCompactTree. A field added to the parser but
+  // forgotten in COPIED_FIELDS fails HERE, without editing this test — the same
+  // reason a count-based self-check cannot see an omission.
+  const fieldsOf = (nodes) => {
+    const seen = new Set()
+    const walk = (list) => {
+      for (const node of list) {
+        for (const key of Object.keys(node)) if (key !== "children") seen.add(key)
+        walk(node.children)
+      }
+    }
+    walk(nodes)
+    return seen
+  }
+  const produced = fieldsOf(stateParsed.roots)
+  const flattened = fieldsOf(stateFlat)
+  const compact = fieldsOf(UiTree.buildCompactTree(stateParsed.roots).tree)
+  assert.ok(produced.size >= 12, `expected the fixture to exercise many fields, saw ${produced.size}`)
+  for (const field of produced) {
+    assert.ok(flattened.has(field), `flattenNodes drops "${field}" — add it to COPIED_FIELDS in lib/uitree.js`)
+    assert.ok(compact.has(field), `buildCompactTree drops "${field}" — add it to COPIED_FIELDS in lib/uitree.js`)
+  }
+})
 ok("buildCompactTree filter keeps ancestors of matches", () => {
   const { tree } = UiTree.buildCompactTree(parsed.roots, undefined, "btn_settings")
   // The FrameLayout root survives because a descendant matches.
