@@ -425,6 +425,22 @@ ok("the picker row's action is a real button, and its off control is a sibling",
   assert.ok(!/\.mc-picker-row \.mc-log-toggle/.test(clientSrc), "the dead picker-row log-toggle selector is back")
 })
 
+ok("the composer capsule truncates a long serial instead of breaking the input", () => {
+  // The capsule renders the streaming serial raw ("emulator-5554" is 13 chars
+  // of mono in a pill the composer squeezes next to other dock elements), and
+  // a bare inline-flex pill grows with its text — so the symptom was a serial
+  // shoving the composer's other elements, not a panel layout bug. Constrain
+  // the pill, then truncate the text inside it, not the pill itself.
+  assert.match(clientSrc, /\.mc-capsule \{[^}]*max-width: 100%/, "the capsule has no width bound, so its text sets its size")
+  assert.match(clientSrc, /\.mc-capsule \{[^}]*overflow: hidden/, "the capsule cannot clip what its text overflows")
+  assert.match(clientSrc, /\.mc-capsule-serial \{[^}]*text-overflow: ellipsis/, "the serial has no ellipsis rule")
+  assert.match(clientSrc, /\.mc-capsule-serial \{[^}]*white-space: nowrap/, "the serial can wrap onto its own line")
+  assert.match(clientSrc, /\.mc-capsule-serial \{[^}]*overflow: hidden/, "the serial text cannot clip inside the pill")
+  // The ellipsis hides information, so the full serial has to survive somewhere
+  // a pointer can see it.
+  assert.match(clientSrc, /className: "mc-capsule-serial", title:/, "the truncated serial keeps no full-text title")
+})
+
 ok("the two deliberate :focus rules stay deliberate, and say why", () => {
   // Everything else in this file uses :focus-visible, so a sweep that
   // "normalizes" these two breaks real behaviour: a text field shows a caret
