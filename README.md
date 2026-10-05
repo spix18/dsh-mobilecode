@@ -72,6 +72,19 @@ drawer:
   state), case-insensitive `filter` that keeps ancestors of matches, `max_depth`,
   and a 40 KB cap that prunes the deepest levels first. Resource-ids are the most
   stable tap handles.
+- `device_scene` — sight of the screen for **design** work, and the one observer a
+  text-only model can read (0.13.0). The tree says where things are and what they
+  are called; the pixels say what they look like; neither answers a design
+  question alone, so it joins them on bounds and returns one document:
+  `STRUCTURE` (per node: bounds in px *and* dp, background, radius, border,
+  elevation, text colour and its contrast ratio), `SCALES (measured, not
+  declared)` — the real palette, corner radii, text inks, glyph heights and the
+  spacing rhythm, tallied by usage — and `ISSUES`: touch targets under 48dp,
+  clickables nothing announces a label for, text below 4.5:1 (3:1 only for a
+  clearly large glyph), clipped labels. Style is reported as a **diff against the
+  parent**, because a card repeating its parent's background is not a design
+  decision, it is the absence of one. Every number is measured from pixels, so it
+  works on any app — no APK, no resource introspection, no debug build.
 - `device_tap_element` — tap a control by identity: `resource_id` matches the
   node's resource-id, `text` matches its text or content-desc; exact match wins
   over substring, nested duplicates collapse to the outermost control, ambiguity
@@ -378,7 +391,7 @@ say *why* instead of "something failed".
 - Tolerant internal callers (boot polling, IME checks) opt back into
   best-effort with an explicit `.catch(() => "")`.
 
-## Design workbench (0.12 — native Android UI design & verification)
+## Design workbench (0.12–0.13 — native Android UI design & verification)
 
 Reusable capabilities for the loop *explore visual directions → approve a
 design → implement native Compose → render → compare → test on Android →
@@ -418,6 +431,17 @@ the app project, never hardcoded here.
   CLI is absent everything degrades to honest `not_run` — the workspace stays
   fully usable with manual imports. OpenPencil exports are web-oriented
   (PNG/JSX/HTML); no native Compose export is claimed.
+- **Deep perception (`device_scene`, 0.13.0)** — the design loop needs sight of a
+  real screen, and a text-only model cannot look at a screenshot. This joins the
+  uiautomator tree (where things are, what they are called) to the pixels (what
+  they look like) on bounds, and returns one readable document: measured
+  backgrounds, radii, borders, elevations, text colours with their contrast
+  ratios, the palette / radius / glyph / spacing rhythm tallied by usage, and the
+  problems worth fixing. Every number is measured from pixels — no APK, no
+  resource introspection, no debug build — so it works on any app, including
+  Compose. Colours are WCAG 2.x exactly. Two limits are documented rather than
+  hidden: a gradient fill is indistinguishable from a shadow, and a hard-edged
+  corner resolves to about ±2px (flagged `?` in the output).
 - **Panel** — the Devices drawer gains two cards: **Reference compare**
   (import / capture / side-by-side / opacity overlay / swipe slider / diff)
   and **Preview gallery** (discovery, thumbnails, stale badges, per-entry
@@ -483,9 +507,19 @@ the package name, not the patch row id).
 ## Verify
 
 ```powershell
+node test/all.mjs                   # the whole offline suite (21 files, 369 checks)
 node test/smoke.mjs                 # engine unit smoke test (15 checks)
 node test/e2e-android.mjs <dir>     # full build+install+launch on a real device
 ```
+
+`test/all.mjs` runs an explicit allowlist of the files that need no device; the
+device-dependent ones (`smoke`, `e2e-android`, `observability`, `agent-tools`,
+`tool-run`) hang without an emulator, which is why the list is explicit rather
+than "everything except these". It forces `DSH_MOBILECODE_DIR` to this repo —
+without that, `selfcheck` silently verifies the *installed* copy instead of the
+working tree. `test/mutate.mjs` is the sharpest of them: it copies the source,
+breaks one guard at a time, and requires the test to go red **on the right
+assertion** — a guard that is green on the real source proves nothing.
 
 The e2e run performs a Gradle `assembleDebug`, reads the app id with aapt2,
 `adb install -r -g`, and `am start` on the first attached device, then quits
