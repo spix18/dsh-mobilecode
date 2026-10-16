@@ -128,7 +128,7 @@ st = renderState(app, discoverPreviewTests(app)[0], { fingerprint: inputsFingerp
 ok(st.freshness === "last_run_failed", "failed/cancelled render invalidates success immediately (older PNG stays visible, labeled)")
 
 // ── HTTP contract + tool registration (stub ctx against mounted copy) ────────
-const pluginDir = process.env.DSH_MOBILECODE_DIR ?? "C:\\Users\\Administrator\\.dsh\\profiles\\web\\node_modules\\dsh-mobilecode"
+const pluginDir = process.env.DSH_MOBILECODE_DIR ?? path.resolve(here, "..")
 const registered = { routes: [], tools: [] }
 const ctx = {
   provide() {}, webServer: { register: (r) => registered.routes.push(r), registerUpgrade: () => () => {} },

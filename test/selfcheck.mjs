@@ -16,7 +16,7 @@ import { pathToFileURL } from "node:url"
 import { fileURLToPath } from "node:url"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const pluginDir = process.env["DSH_MOBILECODE_DIR"] ?? "C:\\Users\\Administrator\\.dsh\\profiles\\web\\node_modules\\dsh-mobilecode"
+const pluginDir = process.env["DSH_MOBILECODE_DIR"] ?? path.resolve(here, "..")
 const target = process.argv[2] ?? path.resolve(here, "fixtures", "sample-android")
 
 const registered = { routes: [], tools: [], sections: [] }

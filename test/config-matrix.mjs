@@ -14,7 +14,7 @@ import process from "node:process"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 process.env.DSH_MOBILECODE_REF_ROOT = mkdtempSync(path.join(tmpdir(), "mc-matrix-"))
-const pluginDir = process.env.DSH_MOBILECODE_DIR ?? "C:\\Users\\Administrator\\.dsh\\profiles\\web\\node_modules\\dsh-mobilecode"
+const pluginDir = process.env.DSH_MOBILECODE_DIR ?? path.resolve(here, "..")
 const { isEmulatorSerial, parseDisplaySetting, starterCases } = await import(pathToFileURL(path.join(here, "..", "lib", "config-matrix.js")).href)
 
 let passed = 0
@@ -56,7 +56,7 @@ const ctx = {
   tools: { register: (t) => registered.tools.push(t) }, systemPrompt: { section: () => () => {} }, effect: (fn) => fn(), get: () => undefined,
 }
 const plugin = await import(pathToFileURL(path.join(pluginDir, "lib", "index.js")).href)
-plugin.apply(ctx, { defaultDirectory: "C:\\Users\\Administrator\\Desktop\\mobilecode_dsh" })
+plugin.apply(ctx, { defaultDirectory: path.resolve(here, "..") })
 await ok("config_matrix tool registered", () => must(registered.tools.some((t) => t.name === "config_matrix"), "missing"))
 const runRoute = registered.routes.find((r) => r.path === "/api/dsh-mobilecode/matrix/run")
 const capRoute = registered.routes.find((r) => r.path === "/api/dsh-mobilecode/matrix/capabilities")

@@ -15,7 +15,7 @@ import process from "node:process"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 process.env.DSH_MOBILECODE_REF_ROOT = mkdtempSync(path.join(tmpdir(), "mc-ref-routes-"))
-const pluginDir = process.env["DSH_MOBILECODE_DIR"] ?? "C:\\Users\\Administrator\\.dsh\\profiles\\web\\node_modules\\dsh-mobilecode"
+const pluginDir = process.env["DSH_MOBILECODE_DIR"] ?? path.resolve(here, "..")
 
 const registered = { routes: [], tools: [], sections: [] }
 const ctx = {

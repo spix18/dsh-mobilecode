@@ -460,6 +460,13 @@ ok("the two deliberate :focus rules stay deliberate, and say why", () => {
   assert.match(reason(".mc-modal:focus"), /Tab trap/, "the dialog's :focus no longer says why it has no ring")
 })
 
+ok("DoctorView wires Fix all, passes check.name, and surfaces result.ok === false errors", () => {
+  assert.match(clientSrc, /fix\("all"\)/, "DoctorView missing Fix all button")
+  assert.match(clientSrc, /fix\(check\.name\)/, "DoctorView should pass check.name to /doctor/fix")
+  assert.match(clientSrc, /if \(result\?\.ok === false\)/, "DoctorView must surface result.ok === false as an error")
+  assert.match(clientSrc, /failed && status\?\.installed \? "Repair" : "Install"/, "OcrCard should offer Repair when a broken venv is present")
+})
+
 const moduleExports = factory(stubRequire)
 ok("factory exports apply + inject", () => {
   assert.equal(typeof moduleExports.apply, "function")

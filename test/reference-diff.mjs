@@ -82,14 +82,14 @@ await ok("ocrCorroboration reports disagreement, never merges", async () => {
 })
 
 // ── wire: /refs/diff via stub ctx against the mounted copy ───────────────────
-const pluginDir = process.env.DSH_MOBILECODE_DIR ?? "C:\\Users\\Administrator\\.dsh\\profiles\\web\\node_modules\\dsh-mobilecode"
+const pluginDir = process.env.DSH_MOBILECODE_DIR ?? path.resolve(here, "..")
 const registered = { routes: [] }
 const ctx = {
   provide() {}, webServer: { register: (r) => registered.routes.push(r), registerUpgrade: () => () => {} },
   tools: { register: () => {} }, systemPrompt: { section: () => () => {} }, effect: (fn) => fn(), get: () => undefined,
 }
 const plugin = await import(pathToFileURL(path.join(pluginDir, "lib", "index.js")).href)
-plugin.apply(ctx, { defaultDirectory: "C:\\Users\\Administrator\\Desktop\\mobilecode_dsh" })
+plugin.apply(ctx, { defaultDirectory: path.resolve(here, "..") })
 const diffRoute = registered.routes.find((r) => r.path === "/api/dsh-mobilecode/refs/diff")
 await ok("refs/diff route registered", async () => must(diffRoute, "missing"))
 

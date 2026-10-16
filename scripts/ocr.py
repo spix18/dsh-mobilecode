@@ -15,6 +15,14 @@ import sys
 # Paddle 3.x PIR executor hits a oneDNN conversion bug on Windows; the CPU backend
 # without mkldnn avoids it. Must be set before `import paddle`.
 os.environ.setdefault("FLAGS_use_mkldnn", "0")
+# Skip PaddleX's remote model-host connectivity probe on every cold start.
+os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:  # noqa: BLE001
+    pass
 
 
 def main():
